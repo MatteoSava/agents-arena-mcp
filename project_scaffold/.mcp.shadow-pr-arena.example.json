@@ -1,0 +1,12 @@
+{
+  "mcpServers": {
+    "shadow-pr-arena": {
+      "type": "stdio",
+      "command": "python",
+      "args": ["-m", "shadow_pr_arena_mcp.server"],
+      "env": {
+        "SHADOW_PR_ARENA_ROOT": "."
+      }
+    }
+  }
+}

@@ -1,0 +1,15 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Shadow PR Arena Pairwise Judge Result",
+  "type": "object",
+  "required": ["winner", "confidence", "reasons"],
+  "properties": {
+    "winner": {"type": "string"},
+    "outcome": {"type": "string", "enum": ["win", "draw"]},
+    "confidence": {"type": "number", "minimum": 0, "maximum": 1},
+    "margin": {"type": "string"},
+    "reasons": {"type": "array", "items": {"type": "string"}},
+    "risks": {"type": "array", "items": {"type": "string"}}
+  },
+  "additionalProperties": true
+}

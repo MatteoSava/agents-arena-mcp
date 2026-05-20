@@ -1,0 +1,26 @@
+[mcp_servers.shadow_pr_arena]
+command = "python"
+args = ["-m", "shadow_pr_arena_mcp.server"]
+cwd = "."
+enabled = true
+startup_timeout_sec = 10
+tool_timeout_sec = 120
+default_tools_approval_mode = "prompt"
+enabled_tools = [
+  "arena_open",
+  "arena_variant_brief",
+  "arena_status",
+  "arena_run_variant_agent",
+  "arena_record_variant",
+  "arena_run_checks",
+  "arena_pairwise_judge",
+  "arena_judge_all_pairs",
+  "arena_score",
+  "arena_scoreboard",
+  "arena_promote_winner",
+  "arena_export_pr_bundle",
+  "arena_cleanup"
+]
+
+[mcp_servers.shadow_pr_arena.env]
+SHADOW_PR_ARENA_ROOT = "."

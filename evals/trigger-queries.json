@@ -1,0 +1,22 @@
+[
+  {
+    "query": "Refactor the billing retry logic and compare at least four approaches.",
+    "should_trigger": true,
+    "reason": "Risky refactor with multiple plausible strategies."
+  },
+  {
+    "query": "Fix the timezone bug but make sure we do not repeat old failures.",
+    "should_trigger": true,
+    "reason": "Recurring bug; test_first/minimal/robust variants useful."
+  },
+  {
+    "query": "Rename this variable.",
+    "should_trigger": false,
+    "reason": "Trivial change; arena overhead not justified."
+  },
+  {
+    "query": "Migrate Pydantic v1 to v2 and show tradeoffs.",
+    "should_trigger": true,
+    "reason": "Dependency migration with multiple paths."
+  }
+]
