@@ -1,6 +1,6 @@
-# Shadow PR Arena MCP
+# Agents Arena MCP
 
-Shadow PR Arena is a local FastMCP server and CLI for comparing multiple agentic coding variants in isolated Git worktrees.
+Agents Arena is a local FastMCP server and CLI for comparing multiple agentic coding variants in isolated Git worktrees.
 
 It is designed for Claude Code, Codex, and OpenCode workflows where the first patch is not necessarily the best patch.
 
@@ -44,20 +44,20 @@ python install.py --target /path/to/repo --append-agents --append-claude
 This creates:
 
 ```text
-.shadow-pr-arena/
-.claude/skills/shadow-pr-arena/SKILL.md
-.codex/config.shadow-pr-arena.example.toml
-.opencode/skills/shadow-pr-arena/SKILL.md
-.agents/skills/shadow-pr-arena/SKILL.md
-AGENTS.shadow-pr-arena.md
-CLAUDE.shadow-pr-arena.md
+.agents-arena/
+.claude/skills/agents-arena/SKILL.md
+.codex/config.agents-arena.example.toml
+.opencode/skills/agents-arena/SKILL.md
+.agents/skills/agents-arena/SKILL.md
+AGENTS.agents-arena.md
+CLAUDE.agents-arena.md
 ```
 
 ## CLI example
 
 ```bash
 cd /path/to/repo
-shadow-pr-arena open "Refactor billing retries without changing behavior" \
+agents-arena open "Refactor billing retries without changing behavior" \
   --variant minimal_patch \
   --variant test_first \
   --variant policy_object \
@@ -67,28 +67,28 @@ shadow-pr-arena open "Refactor billing retries without changing behavior" \
 Get implementation briefs:
 
 ```bash
-shadow-pr-arena brief <arena-id> minimal_patch
-shadow-pr-arena brief <arena-id> policy_object
+agents-arena brief <arena-id> minimal_patch
+agents-arena brief <arena-id> policy_object
 ```
 
 After implementing in each worktree:
 
 ```bash
-shadow-pr-arena record <arena-id> minimal_patch
-shadow-pr-arena checks <arena-id> minimal_patch --command "python -m pytest -q"
+agents-arena record <arena-id> minimal_patch
+agents-arena checks <arena-id> minimal_patch --command "python -m pytest -q"
 ```
 
 Run pairwise tournament and render scoreboard:
 
 ```bash
-shadow-pr-arena judge-all <arena-id> --judge-runner heuristic
-shadow-pr-arena scoreboard <arena-id>
+agents-arena judge-all <arena-id> --judge-runner heuristic
+agents-arena scoreboard <arena-id>
 ```
 
 Export winner patch:
 
 ```bash
-shadow-pr-arena promote <arena-id> --mode patch
+agents-arena promote <arena-id> --mode patch
 ```
 
 ## Agent runners
@@ -98,7 +98,7 @@ shadow-pr-arena promote <arena-id> --mode patch
 The default `manual` runner writes prompts and run metadata, then waits for you or an interactive coding agent to implement the variant.
 
 ```bash
-shadow-pr-arena run-agent <arena-id> test_first --runner manual
+agents-arena run-agent <arena-id> test_first --runner manual
 ```
 
 ### Codex runner
@@ -106,7 +106,7 @@ shadow-pr-arena run-agent <arena-id> test_first --runner manual
 If the Codex CLI is installed:
 
 ```bash
-shadow-pr-arena run-agent <arena-id> test_first --runner codex --model gpt-5.5
+agents-arena run-agent <arena-id> test_first --runner codex --model gpt-5.5
 ```
 
 The runner captures stdout, stderr, JSONL events where available, token usage when present, wall time, model, prompt hash, and final output path.
@@ -116,15 +116,15 @@ The runner captures stdout, stderr, JSONL events where available, token usage wh
 If OpenCode is installed:
 
 ```bash
-shadow-pr-arena run-agent <arena-id> clean_boundary --runner opencode --model anthropic/claude-sonnet-4-5
+agents-arena run-agent <arena-id> clean_boundary --runner opencode --model anthropic/claude-sonnet-4-5
 ```
 
 ## Pairwise judge runners
 
 ```bash
-shadow-pr-arena judge <arena-id> minimal_patch policy_object --judge-runner heuristic
-shadow-pr-arena judge-all <arena-id> --judge-runner codex --judge-model gpt-5.5
-shadow-pr-arena judge-all <arena-id> --judge-runner opencode
+agents-arena judge <arena-id> minimal_patch policy_object --judge-runner heuristic
+agents-arena judge-all <arena-id> --judge-runner codex --judge-model gpt-5.5
+agents-arena judge-all <arena-id> --judge-runner opencode
 ```
 
 `heuristic` is deterministic and useful for local testing. `codex` and `opencode` are external judge adapters that run read-only comparison prompts and record judge telemetry.
@@ -145,25 +145,25 @@ python -m agents_arena_mcp.server
 
 ### Claude Code project config example
 
-The scaffold includes `.claude/settings.shadow-pr-arena.example.json`. You can also add:
+The scaffold includes `.claude/settings.agents-arena.example.json`. You can also add:
 
 ```bash
-claude mcp add --transport stdio --scope project shadow-pr-arena -- \
+claude mcp add --transport stdio --scope project agents-arena -- \
   python -m agents_arena_mcp.server
 ```
 
 ### Codex config example
 
-Copy or merge `.codex/config.shadow-pr-arena.example.toml` into your Codex config.
+Copy or merge `.codex/config.agents-arena.example.toml` into your Codex config.
 
 ### OpenCode config example
 
-Copy or merge `opencode.json.shadow-pr-arena.example` into your OpenCode configuration.
+Copy or merge `opencode.json.agents-arena.example` into your OpenCode configuration.
 
 ## Files written in the target repo
 
 ```text
-.shadow-pr-arena/
+.agents-arena/
 ├── policy.json
 ├── state/
 │   ├── current-arena.json
@@ -189,7 +189,7 @@ Copy or merge `opencode.json.shadow-pr-arena.example` into your OpenCode configu
 Worktrees live outside the repo by default:
 
 ```text
-../.shadow-pr-arena-worktrees/<repo-name>/<arena-id>/<variant>/
+../.agents-arena-worktrees/<repo-name>/<arena-id>/<variant>/
 ```
 
 ## Safety defaults

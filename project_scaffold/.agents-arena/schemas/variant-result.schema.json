@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "title": "Shadow PR Arena Variant Run Result",
+  "title": "Agents Arena Variant Run Result",
   "type": "object",
   "properties": {
     "summary": {"type": "string"},

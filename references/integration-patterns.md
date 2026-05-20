@@ -2,7 +2,7 @@
 
 ## With repo-sentinel
 
-Repo Sentinel should remain the blocking guardrail for dangerous shell commands and sensitive paths. Shadow PR Arena focuses on variants, scoring and telemetry.
+Repo Sentinel should remain the blocking guardrail for dangerous shell commands and sensitive paths. Agents Arena focuses on variants, scoring and telemetry.
 
 ## With python-tdd
 

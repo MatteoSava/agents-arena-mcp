@@ -5,7 +5,7 @@ import json
 from pathlib import Path
 
 root = Path.cwd()
-current = root / ".shadow-pr-arena" / "state" / "current-arena.json"
+current = root / ".agents-arena" / "state" / "current-arena.json"
 if not current.exists():
     raise SystemExit(0)
 try:
@@ -14,6 +14,6 @@ except Exception:
     raise SystemExit(0)
 status = arena.get("status")
 if status == "open" and not arena.get("winner"):
-    print("Shadow PR Arena is still open and has no winner. Run arena_judge_all_pairs or arena_scoreboard, or explicitly close/cleanup the arena.", flush=True)
+    print("Agents Arena is still open and has no winner. Run arena_judge_all_pairs or arena_scoreboard, or explicitly close/cleanup the arena.", flush=True)
     raise SystemExit(2)
 raise SystemExit(0)

@@ -7,7 +7,7 @@ def pairwise_judge_prompt(arena: dict[str, Any], variant_a: dict[str, Any], vari
     task = arena.get("task", "")
     va = variant_a.get("name")
     vb = variant_b.get("name")
-    return f"""# Shadow PR Arena Pairwise Judge
+    return f"""# Agents Arena Pairwise Judge
 
 You are judging two alternative code changes for the same task. You must not edit files. You must compare evidence and return only JSON matching the provided schema.
 

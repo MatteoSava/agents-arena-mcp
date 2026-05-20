@@ -9,4 +9,4 @@ def test_version_flag_prints_package_version(capsys):
         main(["--version"])
 
     assert excinfo.value.code == 0
-    assert capsys.readouterr().out.strip() == f"shadow-pr-arena {__version__}"
+    assert capsys.readouterr().out.strip() == f"agents-arena {__version__}"

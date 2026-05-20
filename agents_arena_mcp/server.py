@@ -13,7 +13,7 @@ def make_mcp():
     except Exception as exc:  # pragma: no cover - exercised only without dependency
         raise RuntimeError("FastMCP is required to run the MCP server. Install with `pip install -e .`.") from exc
 
-    mcp = FastMCP(name="Shadow PR Arena MCP")
+    mcp = FastMCP(name="Agents Arena MCP")
 
     @mcp.tool
     def arena_open(
@@ -23,7 +23,7 @@ def make_mcp():
         include_current_diff: bool = False,
         risk_level: str = "normal",
     ) -> dict[str, Any]:
-        """Create a Shadow PR Arena with isolated git worktrees for competing variants."""
+        """Create a Agents Arena with isolated git worktrees for competing variants."""
         return ArenaEngine().open(task, base_ref, variants, include_current_diff, risk_level)
 
     @mcp.tool
@@ -127,7 +127,7 @@ def make_mcp():
 
     @mcp.resource("arena://policy")
     def policy() -> str:
-        """Current Shadow PR Arena policy as JSON."""
+        """Current Agents Arena policy as JSON."""
         engine = ArenaEngine()
         return json.dumps(engine.policy, indent=2)
 
@@ -149,8 +149,8 @@ def make_mcp():
 
     @mcp.prompt
     def arena_variant_implementer(task: str, variant: str, constraints: str = "") -> str:
-        """Prompt template for implementing a Shadow PR Arena variant."""
-        return f"""Implement one Shadow PR Arena variant.
+        """Prompt template for implementing a Agents Arena variant."""
+        return f"""Implement one Agents Arena variant.
 
 Task: {task}
 Variant: {variant}

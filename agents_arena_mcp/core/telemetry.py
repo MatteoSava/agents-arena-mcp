@@ -17,7 +17,7 @@ def new_run_id(prefix: str = "run") -> str:
 class RunLedger:
     def __init__(self, repo_root: Path):
         self.repo_root = repo_root
-        self.base = repo_root / ".shadow-pr-arena"
+        self.base = repo_root / ".agents-arena"
         self.runs_dir = self.base / "runs"
         self.state_dir = self.base / "state"
         ensure_dir(self.runs_dir)

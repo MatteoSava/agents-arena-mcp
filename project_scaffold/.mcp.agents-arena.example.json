@@ -1,11 +1,11 @@
 {
   "mcpServers": {
-    "shadow-pr-arena": {
+    "agents-arena": {
       "type": "stdio",
       "command": "python",
       "args": ["-m", "agents_arena_mcp.server"],
       "env": {
-        "SHADOW_PR_ARENA_ROOT": "${CLAUDE_PROJECT_DIR}"
+        "AGENTS_ARENA_ROOT": "."
       }
     }
   }

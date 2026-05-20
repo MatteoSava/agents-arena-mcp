@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "title": "Shadow PR Arena Pairwise Judge Result",
+  "title": "Agents Arena Pairwise Judge Result",
   "type": "object",
   "required": ["winner", "confidence", "reasons"],
   "properties": {

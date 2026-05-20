@@ -40,7 +40,7 @@ STRATEGY_BRIEFS = {
 class ArenaEngine:
     def __init__(self, repo_root: Path | None = None):
         self.repo_root = discover_repo_root(repo_root)
-        self.base_dir = self.repo_root / ".shadow-pr-arena"
+        self.base_dir = self.repo_root / ".agents-arena"
         self.state_dir = self.base_dir / "state"
         self.reports_dir = self.base_dir / "reports"
         self.patches_dir = self.base_dir / "patches"
@@ -95,7 +95,7 @@ class ArenaEngine:
         ensure_dir(worktree_root)
         variant_records: dict[str, Any] = {}
         for variant in variants:
-            branch = f"shadow/{arena_id}/{variant}"[:240]
+            branch = f"arena/{arena_id}/{variant}"[:240]
             worktree_path = worktree_root / variant
             create_worktree(self.repo_root, worktree_path, branch, base_ref)
             variant_records[variant] = {
@@ -155,7 +155,7 @@ class ArenaEngine:
         if variant not in arena["variants"]:
             raise ArenaError(f"Unknown variant {variant!r}")
         rec = arena["variants"][variant]
-        prompt = f"""# Shadow PR Arena Variant Brief
+        prompt = f"""# Agents Arena Variant Brief
 
 Arena: {arena_id}
 Variant: {variant}
@@ -475,7 +475,7 @@ Worktree: {rec['worktree']}
 
     def _render_scoreboard_markdown(self, arena: dict[str, Any], rows: list[dict[str, Any]], score: dict[str, Any], pairwise_results: list[dict[str, Any]]) -> str:
         lines = [
-            "# Shadow PR Arena Scoreboard",
+            "# Agents Arena Scoreboard",
             "",
             f"Arena: `{arena['arena_id']}`",
             f"Task: {arena.get('task')}",
@@ -535,7 +535,7 @@ Worktree: {rec['worktree']}
             if proc.returncode != 0:
                 raise ArenaError(f"Failed to apply winner patch:\n{proc.stderr or proc.stdout}")
         elif mode == "branch":
-            branch = f"shadow/winner/{arena_id}/{variant}"[:240]
+            branch = f"arena/winner/{arena_id}/{variant}"[:240]
             run_cmd(["git", "checkout", "-b", branch, arena["base_commit"]], cwd=self.repo_root, check=True)
             proc = run_cmd(["git", "apply", str(winner_patch)], cwd=self.repo_root, check=False)
             result.update({"branch": branch, "applied": proc.returncode == 0, "stdout": proc.stdout, "stderr": proc.stderr})
@@ -555,7 +555,7 @@ Worktree: {rec['worktree']}
         winner = arena.get("winner") or sb.get("winner")
         patch = self.promote_winner(arena_id, winner, mode="patch")
         summary_path = self.reports_dir / f"{arena_id}-pr-summary.md"
-        summary = f"""# PR Summary from Shadow PR Arena
+        summary = f"""# PR Summary from Agents Arena
 
 Task: {arena.get('task')}
 

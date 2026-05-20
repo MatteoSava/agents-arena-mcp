@@ -20,7 +20,7 @@ class CodexExecRunner:
         run_dir = ledger.run_dir(run_id)
         prompt_path = ledger.write_prompt(run_id, request.prompt)
         final_path = run_dir / "final.md"
-        schema_path = request.repo_root / ".shadow-pr-arena" / "schemas" / "variant-result.schema.json"
+        schema_path = request.repo_root / ".agents-arena" / "schemas" / "variant-result.schema.json"
         cmd = [
             exe,
             "exec",

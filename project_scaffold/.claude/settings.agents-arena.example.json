@@ -6,7 +6,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python .shadow-pr-arena/hooks/stop_gate.py"
+            "command": "python .agents-arena/hooks/stop_gate.py"
           }
         ]
       }

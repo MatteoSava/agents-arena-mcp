@@ -1,15 +1,15 @@
 ---
-name: shadow-pr-arena
-description: Use a Shadow PR Arena to compare multiple implementation variants in isolated worktrees, run checks, judge all pairs, maintain Elo scoreboards, and export the winning patch safely.
+name: agents-arena
+description: Use a Agents Arena to compare multiple implementation variants in isolated worktrees, run checks, judge all pairs, maintain Elo scoreboards, and export the winning patch safely.
 ---
 
-# Shadow PR Arena Skill
+# Agents Arena Skill
 
 Use this skill when the task has multiple plausible implementations, the first patch may not be the best patch, or the user asks to compare approaches.
 
 ## When to use
 
-Use Shadow PR Arena for risky refactors, dependency migrations, recurring bugs, architecture choices, performance-vs-maintainability tradeoffs, and ambiguous feature requests.
+Use Agents Arena for risky refactors, dependency migrations, recurring bugs, architecture choices, performance-vs-maintainability tradeoffs, and ambiguous feature requests.
 
 Do not use it for trivial typo fixes, one-line config changes, purely explanatory tasks, or tasks where the user explicitly wants a direct single implementation.
 

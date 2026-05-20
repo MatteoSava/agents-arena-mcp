@@ -31,7 +31,7 @@ def append_once(path: Path, text: str, marker: str) -> None:
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="Install Shadow PR Arena scaffold into a repository.")
+    parser = argparse.ArgumentParser(description="Install Agents Arena scaffold into a repository.")
     parser.add_argument("--target", default=".", help="Target repo root")
     parser.add_argument("--overwrite", action="store_true", help="Overwrite existing scaffold files")
     parser.add_argument("--append-agents", action="store_true", help="Append AGENTS snippet")
@@ -43,17 +43,17 @@ def main() -> int:
     copytree_merge(here / "project_scaffold", target, overwrite=args.overwrite)
 
     if args.append_agents:
-        snippet = (here / "project_scaffold" / "AGENTS.shadow-pr-arena.md").read_text(encoding="utf-8")
-        append_once(target / "AGENTS.md", snippet, "SHADOW_PR_ARENA_SNIPPET")
+        snippet = (here / "project_scaffold" / "AGENTS.agents-arena.md").read_text(encoding="utf-8")
+        append_once(target / "AGENTS.md", snippet, "AGENTS_ARENA_SNIPPET")
     if args.append_claude:
-        snippet = (here / "project_scaffold" / "CLAUDE.shadow-pr-arena.md").read_text(encoding="utf-8")
-        append_once(target / "CLAUDE.md", snippet, "SHADOW_PR_ARENA_SNIPPET")
+        snippet = (here / "project_scaffold" / "CLAUDE.agents-arena.md").read_text(encoding="utf-8")
+        append_once(target / "CLAUDE.md", snippet, "AGENTS_ARENA_SNIPPET")
 
-    print(f"Installed Shadow PR Arena scaffold into {target}")
+    print(f"Installed Agents Arena scaffold into {target}")
     print("Next steps:")
     print("  1. pip install -e /path/to/agents-arena-mcp")
     print("  2. Configure Claude/Codex/OpenCode using the generated example files.")
-    print("  3. Run: shadow-pr-arena --repo . open 'Compare strategies for my task'")
+    print("  3. Run: agents-arena --repo . open 'Compare strategies for my task'")
     return 0
 
 

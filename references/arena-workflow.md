@@ -1,6 +1,6 @@
 # Arena Workflow
 
-Shadow PR Arena is meant for tasks where implementation strategy matters.
+Agents Arena is meant for tasks where implementation strategy matters.
 
 ## Lifecycle
 

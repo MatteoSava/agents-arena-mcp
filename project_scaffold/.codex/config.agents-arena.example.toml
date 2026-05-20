@@ -1,4 +1,4 @@
-[mcp_servers.shadow_pr_arena]
+[mcp_servers.agents_arena]
 command = "python"
 args = ["-m", "agents_arena_mcp.server"]
 cwd = "."
@@ -22,5 +22,5 @@ enabled_tools = [
   "arena_cleanup"
 ]
 
-[mcp_servers.shadow_pr_arena.env]
-SHADOW_PR_ARENA_ROOT = "."
+[mcp_servers.agents_arena.env]
+AGENTS_ARENA_ROOT = "."

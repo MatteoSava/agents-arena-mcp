@@ -11,7 +11,7 @@ from .util import ensure_dir, read_json, write_json
 DEFAULT_POLICY: dict[str, Any] = {
     "version": 1,
     "worktrees": {
-        "location": "../.shadow-pr-arena-worktrees/{repo_name}",
+        "location": "../.agents-arena-worktrees/{repo_name}",
         "refuse_dirty_repo_by_default": True,
     },
     "variants": [
@@ -121,7 +121,7 @@ def deep_merge(base: dict[str, Any], override: dict[str, Any]) -> dict[str, Any]
 
 
 def policy_path(repo_root: Path) -> Path:
-    return repo_root / ".shadow-pr-arena" / "policy.json"
+    return repo_root / ".agents-arena" / "policy.json"
 
 
 def load_policy(repo_root: Path) -> dict[str, Any]:

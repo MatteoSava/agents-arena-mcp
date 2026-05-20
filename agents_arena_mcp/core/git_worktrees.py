@@ -8,7 +8,7 @@ from .util import ensure_dir, run_cmd, slugify
 
 
 def discover_repo_root(start: Path | None = None) -> Path:
-    start = Path(start or os.environ.get("SHADOW_PR_ARENA_ROOT") or os.environ.get("CLAUDE_PROJECT_DIR") or os.getcwd()).resolve()
+    start = Path(start or os.environ.get("AGENTS_ARENA_ROOT") or os.environ.get("CLAUDE_PROJECT_DIR") or os.getcwd()).resolve()
     result = run_cmd(["git", "rev-parse", "--show-toplevel"], cwd=start)
     if result.returncode == 0 and result.stdout.strip():
         return Path(result.stdout.strip()).resolve()
@@ -37,14 +37,14 @@ def is_dirty(repo_root: Path) -> bool:
     for line in status_porcelain(repo_root).splitlines():
         path = line[3:] if len(line) > 3 else line
         # Internal arena state should not prevent opening an arena.
-        if path.startswith(".shadow-pr-arena/"):
+        if path.startswith(".agents-arena/"):
             continue
         lines.append(line)
     return bool(lines)
 
 
 def resolve_worktree_root(repo_root: Path, policy: dict) -> Path:
-    template = policy.get("worktrees", {}).get("location", "../.shadow-pr-arena-worktrees/{repo_name}")
+    template = policy.get("worktrees", {}).get("location", "../.agents-arena-worktrees/{repo_name}")
     value = template.format(repo_name=repo_name(repo_root))
     path = Path(value)
     if not path.is_absolute():

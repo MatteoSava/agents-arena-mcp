@@ -136,7 +136,7 @@ def external_judge(
     prompt_path = ledger.write_prompt(run_id, prompt)
     result_path = run_dir / "result.json"
 
-    schema_path = repo_root / ".shadow-pr-arena" / "schemas" / "pairwise-judge.schema.json"
+    schema_path = repo_root / ".agents-arena" / "schemas" / "pairwise-judge.schema.json"
     if runner == "codex":
         exe = find_executable("codex")
         if not exe:

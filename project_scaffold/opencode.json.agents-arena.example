@@ -1,28 +1,28 @@
 {
   "$schema": "https://opencode.ai/config.json",
   "mcp": {
-    "shadow-pr-arena": {
+    "agents-arena": {
       "type": "local",
       "command": ["python", "-m", "agents_arena_mcp.server"],
       "enabled": true,
       "environment": {
-        "SHADOW_PR_ARENA_ROOT": "."
+        "AGENTS_ARENA_ROOT": "."
       }
     }
   },
   "agent": {
-    "shadow-arena-implementer": {
+    "arena-implementer": {
       "mode": "primary",
-      "prompt": "{file:.opencode/agents/shadow-arena-implementer.md}",
+      "prompt": "{file:.opencode/agents/arena-implementer.md}",
       "permission": {
         "read": "allow",
         "edit": "allow",
         "bash": "ask"
       }
     },
-    "shadow-arena-judge": {
+    "arena-judge": {
       "mode": "primary",
-      "prompt": "{file:.opencode/agents/shadow-arena-judge.md}",
+      "prompt": "{file:.opencode/agents/arena-judge.md}",
       "permission": {
         "read": "allow",
         "edit": "deny",

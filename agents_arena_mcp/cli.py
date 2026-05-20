@@ -15,7 +15,7 @@ def print_json(data: Any) -> None:
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(prog="shadow-pr-arena", description="Shadow PR Arena MCP CLI")
+    parser = argparse.ArgumentParser(prog="agents-arena", description="Agents Arena MCP CLI")
     parser.add_argument("--version", action="version", version=f"%(prog)s {__version__}")
     parser.add_argument("--repo", default=None, help="Repository root. Defaults to git root/cwd/env.")
     sub = parser.add_subparsers(dest="cmd", required=True)

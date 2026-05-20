@@ -1,6 +1,6 @@
 # Safety Model
 
-Shadow PR Arena is local software with filesystem access. Treat it as privileged.
+Agents Arena is local software with filesystem access. Treat it as privileged.
 
 ## Defaults
 

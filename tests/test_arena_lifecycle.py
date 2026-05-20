@@ -50,7 +50,7 @@ def test_arena_open_record_judge_scoreboard_cleanup(repo: Path):
     match = engine.pairwise_judge(aid, "minimal_patch", "test_first", judge_runner="heuristic")
     assert match["winner"] in {"minimal_patch", "test_first", "draw"}
     sb = engine.scoreboard(aid)
-    assert "# Shadow PR Arena Scoreboard" in sb["markdown"]
+    assert "# Agents Arena Scoreboard" in sb["markdown"]
     assert "Pairwise matrix" in sb["markdown"]
     patch = engine.promote_winner(aid, mode="patch")
     assert Path(patch["patch_path"]).exists()

@@ -1,3 +1,3 @@
-"""Shadow PR Arena MCP package."""
+"""Agents Arena MCP package."""
 
 __version__ = "0.1.0"
