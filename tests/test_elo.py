@@ -1,4 +1,4 @@
-from shadow_pr_arena_mcp.core.elo import score_for_outcome, update_pair
+from agents_arena_mcp.core.elo import score_for_outcome, update_pair
 
 
 def test_elo_updates_winner_up():

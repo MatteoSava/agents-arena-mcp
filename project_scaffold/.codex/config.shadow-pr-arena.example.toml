@@ -1,6 +1,6 @@
 [mcp_servers.shadow_pr_arena]
 command = "python"
-args = ["-m", "shadow_pr_arena_mcp.server"]
+args = ["-m", "agents_arena_mcp.server"]
 cwd = "."
 enabled = true
 startup_timeout_sec = 10

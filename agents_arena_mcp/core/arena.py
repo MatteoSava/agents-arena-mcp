@@ -6,9 +6,9 @@ import shlex
 from pathlib import Path
 from typing import Any
 
-from shadow_pr_arena_mcp.core.elo import score_for_outcome, update_pair
-from shadow_pr_arena_mcp.core.errors import ArenaError
-from shadow_pr_arena_mcp.core.git_worktrees import (
+from agents_arena_mcp.core.elo import score_for_outcome, update_pair
+from agents_arena_mcp.core.errors import ArenaError
+from agents_arena_mcp.core.git_worktrees import (
     create_worktree,
     current_commit,
     diff_against,
@@ -18,13 +18,13 @@ from shadow_pr_arena_mcp.core.git_worktrees import (
     repo_name,
     resolve_worktree_root,
 )
-from shadow_pr_arena_mcp.core.policy import assert_command_allowed, init_policy, load_policy, path_has_secret_signal
-from shadow_pr_arena_mcp.core.scoring import deterministic_variant_score
-from shadow_pr_arena_mcp.core.telemetry import RunLedger, new_run_id
-from shadow_pr_arena_mcp.core.util import append_jsonl, ensure_dir, find_executable, read_json, run_cmd, sha256_text, slugify, utc_now, write_json
-from shadow_pr_arena_mcp.judges.pairwise import external_judge, heuristic_pairwise
-from shadow_pr_arena_mcp.runners import get_runner
-from shadow_pr_arena_mcp.runners.base import RunnerRequest
+from agents_arena_mcp.core.policy import assert_command_allowed, init_policy, load_policy, path_has_secret_signal
+from agents_arena_mcp.core.scoring import deterministic_variant_score
+from agents_arena_mcp.core.telemetry import RunLedger, new_run_id
+from agents_arena_mcp.core.util import append_jsonl, ensure_dir, find_executable, read_json, run_cmd, sha256_text, slugify, utc_now, write_json
+from agents_arena_mcp.judges.pairwise import external_judge, heuristic_pairwise
+from agents_arena_mcp.runners import get_runner
+from agents_arena_mcp.runners.base import RunnerRequest
 
 STRATEGY_BRIEFS = {
     "minimal_patch": """Implement the smallest safe patch. Avoid public API changes. Add only targeted tests needed to prove the fix. Do not refactor unrelated code.""",

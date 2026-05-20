@@ -6,7 +6,7 @@ from pathlib import Path
 
 import pytest
 
-from shadow_pr_arena_mcp.core.arena import ArenaEngine
+from agents_arena_mcp.core.arena import ArenaEngine
 
 
 def git(repo: Path, *args: str) -> str:

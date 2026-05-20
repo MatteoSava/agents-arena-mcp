@@ -29,7 +29,7 @@ task
 ## Install the Python package
 
 ```bash
-cd shadow-pr-arena-mcp
+cd agents-arena-mcp
 python -m venv .venv
 source .venv/bin/activate
 pip install -e '.[dev]'
@@ -134,13 +134,13 @@ shadow-pr-arena judge-all <arena-id> --judge-runner opencode
 Run:
 
 ```bash
-shadow-pr-arena-mcp
+agents-arena-mcp
 ```
 
 Or:
 
 ```bash
-python -m shadow_pr_arena_mcp.server
+python -m agents_arena_mcp.server
 ```
 
 ### Claude Code project config example
@@ -149,7 +149,7 @@ The scaffold includes `.claude/settings.shadow-pr-arena.example.json`. You can a
 
 ```bash
 claude mcp add --transport stdio --scope project shadow-pr-arena -- \
-  python -m shadow_pr_arena_mcp.server
+  python -m agents_arena_mcp.server
 ```
 
 ### Codex config example

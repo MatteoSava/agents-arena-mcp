@@ -1,7 +1,7 @@
 import pytest
 
-from shadow_pr_arena_mcp.core.errors import ArenaError
-from shadow_pr_arena_mcp.core.policy import DEFAULT_POLICY, assert_command_allowed
+from agents_arena_mcp.core.errors import ArenaError
+from agents_arena_mcp.core.policy import DEFAULT_POLICY, assert_command_allowed
 
 
 def test_blocks_destructive_command():

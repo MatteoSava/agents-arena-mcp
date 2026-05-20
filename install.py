@@ -51,7 +51,7 @@ def main() -> int:
 
     print(f"Installed Shadow PR Arena scaffold into {target}")
     print("Next steps:")
-    print("  1. pip install -e /path/to/shadow-pr-arena-mcp")
+    print("  1. pip install -e /path/to/agents-arena-mcp")
     print("  2. Configure Claude/Codex/OpenCode using the generated example files.")
     print("  3. Run: shadow-pr-arena --repo . open 'Compare strategies for my task'")
     return 0

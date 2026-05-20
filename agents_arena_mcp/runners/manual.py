@@ -2,9 +2,9 @@ from __future__ import annotations
 
 from typing import Any
 
-from shadow_pr_arena_mcp.core.telemetry import RunLedger, new_run_id
-from shadow_pr_arena_mcp.core.util import sha256_text, utc_now
-from shadow_pr_arena_mcp.runners.base import RunnerRequest
+from agents_arena_mcp.core.telemetry import RunLedger, new_run_id
+from agents_arena_mcp.core.util import sha256_text, utc_now
+from agents_arena_mcp.runners.base import RunnerRequest
 
 
 class ManualRunner:

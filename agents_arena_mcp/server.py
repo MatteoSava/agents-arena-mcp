@@ -4,7 +4,7 @@ import json
 from pathlib import Path
 from typing import Any
 
-from shadow_pr_arena_mcp.core.arena import ArenaEngine
+from agents_arena_mcp.core.arena import ArenaEngine
 
 
 def make_mcp():

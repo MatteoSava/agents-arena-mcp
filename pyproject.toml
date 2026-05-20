@@ -3,7 +3,7 @@ requires = ["hatchling>=1.18"]
 build-backend = "hatchling.build"
 
 [project]
-name = "shadow-pr-arena-mcp"
+name = "agents-arena-mcp"
 version = "0.1.0"
 description = "FastMCP server for arena-based agentic coding variants, pairwise judging, Elo scoreboards, and run telemetry."
 readme = "README.md"
@@ -18,12 +18,12 @@ dependencies = [
 dev = ["pytest>=7.4"]
 
 [project.scripts]
-shadow-pr-arena = "shadow_pr_arena_mcp.cli:main"
-shadow-pr-arena-mcp = "shadow_pr_arena_mcp.server:main"
+shadow-pr-arena = "agents_arena_mcp.cli:main"
+agents-arena-mcp = "agents_arena_mcp.server:main"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 addopts = "-q"
 
 [tool.hatch.build.targets.wheel]
-packages = ["shadow_pr_arena_mcp"]
+packages = ["agents_arena_mcp"]

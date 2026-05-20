@@ -5,9 +5,9 @@ import json
 from pathlib import Path
 from typing import Any
 
-from shadow_pr_arena_mcp import __version__
-from shadow_pr_arena_mcp.core.arena import ArenaEngine
-from shadow_pr_arena_mcp.core.errors import ArenaError
+from agents_arena_mcp import __version__
+from agents_arena_mcp.core.arena import ArenaEngine
+from agents_arena_mcp.core.errors import ArenaError
 
 
 def print_json(data: Any) -> None:

@@ -2,9 +2,9 @@ from __future__ import annotations
 
 from typing import Any
 
-from shadow_pr_arena_mcp.core.telemetry import RunLedger, new_run_id, run_subprocess_capture
-from shadow_pr_arena_mcp.core.util import find_executable, sha256_text
-from shadow_pr_arena_mcp.runners.base import RunnerRequest
+from agents_arena_mcp.core.telemetry import RunLedger, new_run_id, run_subprocess_capture
+from agents_arena_mcp.core.util import find_executable, sha256_text
+from agents_arena_mcp.runners.base import RunnerRequest
 
 
 class OpenCodeRunRunner:

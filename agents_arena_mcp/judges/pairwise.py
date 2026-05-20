@@ -4,10 +4,10 @@ import json
 from pathlib import Path
 from typing import Any
 
-from shadow_pr_arena_mcp.core.elo import score_for_outcome, update_pair
-from shadow_pr_arena_mcp.core.telemetry import RunLedger, new_run_id, run_subprocess_capture
-from shadow_pr_arena_mcp.core.util import find_executable, sha256_text, utc_now, write_json
-from shadow_pr_arena_mcp.judges.prompts import pairwise_judge_prompt
+from agents_arena_mcp.core.elo import score_for_outcome, update_pair
+from agents_arena_mcp.core.telemetry import RunLedger, new_run_id, run_subprocess_capture
+from agents_arena_mcp.core.util import find_executable, sha256_text, utc_now, write_json
+from agents_arena_mcp.judges.prompts import pairwise_judge_prompt
 
 
 def patch_excerpt(patch: str, max_chars: int = 12000) -> str:

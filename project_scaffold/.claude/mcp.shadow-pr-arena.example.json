@@ -3,7 +3,7 @@
     "shadow-pr-arena": {
       "type": "stdio",
       "command": "python",
-      "args": ["-m", "shadow_pr_arena_mcp.server"],
+      "args": ["-m", "agents_arena_mcp.server"],
       "env": {
         "SHADOW_PR_ARENA_ROOT": "${CLAUDE_PROJECT_DIR}"
       }

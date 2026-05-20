@@ -1,8 +1,8 @@
 from __future__ import annotations
 
-from shadow_pr_arena_mcp.runners.codex_exec import CodexExecRunner
-from shadow_pr_arena_mcp.runners.manual import ManualRunner
-from shadow_pr_arena_mcp.runners.opencode_run import OpenCodeRunRunner
+from agents_arena_mcp.runners.codex_exec import CodexExecRunner
+from agents_arena_mcp.runners.manual import ManualRunner
+from agents_arena_mcp.runners.opencode_run import OpenCodeRunRunner
 
 
 def get_runner(name: str):

@@ -1,7 +1,7 @@
 import pytest
 
-from shadow_pr_arena_mcp import __version__
-from shadow_pr_arena_mcp.cli import main
+from agents_arena_mcp import __version__
+from agents_arena_mcp.cli import main
 
 
 def test_version_flag_prints_package_version(capsys):

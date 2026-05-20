@@ -3,7 +3,7 @@
   "mcp": {
     "shadow-pr-arena": {
       "type": "local",
-      "command": ["python", "-m", "shadow_pr_arena_mcp.server"],
+      "command": ["python", "-m", "agents_arena_mcp.server"],
       "enabled": true,
       "environment": {
         "SHADOW_PR_ARENA_ROOT": "."
