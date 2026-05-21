@@ -98,14 +98,14 @@ def parse_judge_json(text: str, variant_a: str, variant_b: str) -> dict[str, Any
             stripped = stripped[4:].strip()
     try:
         data = json.loads(stripped)
-    except Exception:
-        # Try to extract the first JSON object.
+    except json.JSONDecodeError:
+        # Text may contain multiple JSON objects or surrounding prose.
+        # Extract the first valid JSON object using the incremental decoder.
         start = stripped.find("{")
-        end = stripped.rfind("}")
-        if start >= 0 and end > start:
-            data = json.loads(stripped[start : end + 1])
-        else:
+        if start < 0:
             raise
+        decoder = json.JSONDecoder()
+        data, _ = decoder.raw_decode(stripped, start)
     winner = data.get("winner")
     if winner not in {variant_a, variant_b, "draw"}:
         raise ValueError(f"Invalid judge winner {winner!r}")
@@ -116,6 +116,24 @@ def parse_judge_json(text: str, variant_a: str, variant_b: str) -> dict[str, Any
     data.setdefault("risks", [])
     data.setdefault("judge_mode", "external")
     return data
+
+
+def _extract_winner_from_jsonl(stdout_path: Path) -> str | None:
+    """Scan codex JSONL stdout for the first agent message containing a winner field."""
+    for line in stdout_path.read_text(encoding="utf-8", errors="replace").splitlines():
+        try:
+            event = json.loads(line)
+        except Exception:
+            continue
+        if event.get("type") != "item.completed":
+            continue
+        item = event.get("item", {})
+        if item.get("type") != "agent_message":
+            continue
+        text = item.get("text", "")
+        if '"winner"' in text:
+            return text
+    return None
 
 
 def external_judge(
@@ -160,11 +178,22 @@ def external_judge(
 
     capture = run_subprocess_capture(cmd, cwd=repo_root, run_dir=run_dir, timeout_sec=timeout_sec)
     output_text = ""
-    if result_path.exists():
-        output_text = result_path.read_text(encoding="utf-8", errors="replace")
-    else:
-        stdout_path = Path(capture["outputs"]["stdout_path"])
-        output_text = stdout_path.read_text(encoding="utf-8", errors="replace") if stdout_path.exists() else ""
+    stdout_path = Path(capture["outputs"]["stdout_path"])
+
+    # Prefer extracting the judgment from JSONL stdout — codex emits the
+    # judgment as the first agent_message, but plugins (e.g. quality-gate) can
+    # overwrite result.json with unrelated content.
+    if stdout_path.exists():
+        candidate = _extract_winner_from_jsonl(stdout_path)
+        if candidate:
+            output_text = candidate
+
+    if not output_text.strip():
+        if result_path.exists():
+            output_text = result_path.read_text(encoding="utf-8", errors="replace")
+        elif stdout_path.exists():
+            output_text = stdout_path.read_text(encoding="utf-8", errors="replace")
+
     parsed = parse_judge_json(output_text, variant_a, variant_b)
     metadata = {
         "run_id": run_id,
