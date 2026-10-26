@@ -21,5 +21,4 @@ class RunnerRequest:
 class Runner(Protocol):
     name: str
 
-    def run(self, request: RunnerRequest) -> dict[str, Any]:
-        ...
+    def run(self, request: RunnerRequest) -> dict[str, Any]: ...

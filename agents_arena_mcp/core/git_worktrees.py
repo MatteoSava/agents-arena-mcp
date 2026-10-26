@@ -8,7 +8,9 @@ from .util import ensure_dir, run_cmd, slugify
 
 
 def discover_repo_root(start: Path | None = None) -> Path:
-    start = Path(start or os.environ.get("AGENTS_ARENA_ROOT") or os.environ.get("CLAUDE_PROJECT_DIR") or os.getcwd()).resolve()
+    start = Path(
+        start or os.environ.get("AGENTS_ARENA_ROOT") or os.environ.get("CLAUDE_PROJECT_DIR") or os.getcwd()
+    ).resolve()
     result = run_cmd(["git", "rev-parse", "--show-toplevel"], cwd=start)
     if result.returncode == 0 and result.stdout.strip():
         return Path(result.stdout.strip()).resolve()
@@ -73,7 +75,9 @@ def remove_worktree(repo_root: Path, worktree_path: Path, force: bool = True) ->
 
 
 def diff_against(repo_root_or_worktree: Path, base_commit: str) -> dict:
-    names = run_cmd(["git", "diff", "--name-only", base_commit], cwd=repo_root_or_worktree, check=True).stdout.splitlines()
+    names = run_cmd(
+        ["git", "diff", "--name-only", base_commit], cwd=repo_root_or_worktree, check=True
+    ).stdout.splitlines()
     stat = run_cmd(["git", "diff", "--stat", base_commit], cwd=repo_root_or_worktree, check=False).stdout
     patch = run_cmd(["git", "diff", "--binary", base_commit], cwd=repo_root_or_worktree, check=False).stdout
     numstat = run_cmd(["git", "diff", "--numstat", base_commit], cwd=repo_root_or_worktree, check=False).stdout

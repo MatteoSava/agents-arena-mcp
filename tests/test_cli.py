@@ -14,7 +14,9 @@ def test_version_flag_prints_package_version(capsys):
 
 
 def test_dry_run_open_prints_rich_json(capsys):
-    exit_code = cli.main(["--dry-run", "open", "test task", "--base-ref", "HEAD", "--variant", "detailed", "--include-current-diff"])
+    exit_code = cli.main(
+        ["--dry-run", "open", "test task", "--base-ref", "HEAD", "--variant", "detailed", "--include-current-diff"]
+    )
 
     assert exit_code == 0
     payload = json.loads(capsys.readouterr().out)

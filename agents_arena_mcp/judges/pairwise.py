@@ -4,9 +4,8 @@ import json
 from pathlib import Path
 from typing import Any
 
-from agents_arena_mcp.core.elo import score_for_outcome, update_pair
 from agents_arena_mcp.core.telemetry import RunLedger, new_run_id, run_subprocess_capture
-from agents_arena_mcp.core.util import find_executable, sha256_text, utc_now, write_json
+from agents_arena_mcp.core.util import find_executable, sha256_text
 from agents_arena_mcp.judges.prompts import pairwise_judge_prompt
 
 
@@ -159,7 +158,17 @@ def external_judge(
         exe = find_executable("codex")
         if not exe:
             raise RuntimeError("codex executable not found")
-        cmd = [exe, "exec", "--cd", str(repo_root), "--sandbox", "read-only", "--json", "--output-last-message", str(result_path)]
+        cmd = [
+            exe,
+            "exec",
+            "--cd",
+            str(repo_root),
+            "--sandbox",
+            "read-only",
+            "--json",
+            "--output-last-message",
+            str(result_path),
+        ]
         if model:
             cmd.extend(["--model", model])
         if schema_path.exists():

@@ -7,7 +7,7 @@ import time
 from pathlib import Path
 from typing import Any
 
-from .util import append_jsonl, ensure_dir, read_json, sha256_text, utc_now, write_json
+from .util import append_jsonl, ensure_dir, utc_now, write_json
 
 
 def new_run_id(prefix: str = "run") -> str:

@@ -1,10 +1,9 @@
 from __future__ import annotations
 
-from pathlib import Path
 from typing import Any
 
 from agents_arena_mcp.core.telemetry import RunLedger, new_run_id, run_subprocess_capture
-from agents_arena_mcp.core.util import find_executable, sha256_text, utc_now
+from agents_arena_mcp.core.util import find_executable, sha256_text
 from agents_arena_mcp.runners.base import RunnerRequest
 
 

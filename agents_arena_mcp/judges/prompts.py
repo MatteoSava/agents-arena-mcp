@@ -17,26 +17,26 @@ You are judging two alternative code changes for the same task. You must not edi
 
 ## Variant A: {va}
 
-State: {variant_a.get('state')}
-Checks: {variant_a.get('checks')}
-Risk flags: {variant_a.get('risk_flags')}
-Diff summary: {variant_a.get('diff_summary')}
+State: {variant_a.get("state")}
+Checks: {variant_a.get("checks")}
+Risk flags: {variant_a.get("risk_flags")}
+Diff summary: {variant_a.get("diff_summary")}
 Patch excerpt:
 
 ```diff
-{variant_a.get('patch_excerpt', '')}
+{variant_a.get("patch_excerpt", "")}
 ```
 
 ## Variant B: {vb}
 
-State: {variant_b.get('state')}
-Checks: {variant_b.get('checks')}
-Risk flags: {variant_b.get('risk_flags')}
-Diff summary: {variant_b.get('diff_summary')}
+State: {variant_b.get("state")}
+Checks: {variant_b.get("checks")}
+Risk flags: {variant_b.get("risk_flags")}
+Diff summary: {variant_b.get("diff_summary")}
 Patch excerpt:
 
 ```diff
-{variant_b.get('patch_excerpt', '')}
+{variant_b.get("patch_excerpt", "")}
 ```
 
 ## Criteria

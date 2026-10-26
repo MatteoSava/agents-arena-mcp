@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import os
 import subprocess
 from pathlib import Path
 
@@ -10,7 +9,7 @@ from agents_arena_mcp.core.arena import ArenaEngine
 
 
 def git(repo: Path, *args: str) -> str:
-    result = subprocess.run(["git", *args], cwd=repo, text=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=True)
+    result = subprocess.run(["git", *args], cwd=repo, text=True, capture_output=True, check=True)
     return result.stdout
 
 
@@ -23,7 +22,9 @@ def repo(tmp_path: Path):
     git(repo, "config", "user.name", "Arena Test")
     (repo / "app.py").write_text("def value():\n    return 1\n", encoding="utf-8")
     (repo / "tests").mkdir()
-    (repo / "tests" / "test_app.py").write_text("from app import value\n\ndef test_value():\n    assert value() == 1\n", encoding="utf-8")
+    (repo / "tests" / "test_app.py").write_text(
+        "from app import value\n\ndef test_value():\n    assert value() == 1\n", encoding="utf-8"
+    )
     git(repo, "add", ".")
     git(repo, "commit", "-m", "initial")
     return repo
@@ -43,7 +44,9 @@ def test_arena_open_record_judge_scoreboard_cleanup(repo: Path):
     # Modify variant B with test evidence and matching app change.
     vb = Path(arena["variants"]["test_first"]["worktree"])
     (vb / "app.py").write_text("def value():\n    return 2\n", encoding="utf-8")
-    (vb / "tests" / "test_app.py").write_text("from app import value\n\ndef test_value():\n    assert value() == 2\n", encoding="utf-8")
+    (vb / "tests" / "test_app.py").write_text(
+        "from app import value\n\ndef test_value():\n    assert value() == 2\n", encoding="utf-8"
+    )
     rec_b = engine.record_variant(aid, "test_first")
     assert rec_b["diff"]["files_changed"] == 2
 

@@ -75,7 +75,9 @@ def make_mcp():
         timeout_sec: int = 600,
     ) -> dict[str, Any]:
         """Judge one pair of variants and update Elo ratings."""
-        return ArenaEngine().pairwise_judge(arena_id, variant_a, variant_b, judge_runner, judge_model, criteria_profile, timeout_sec)
+        return ArenaEngine().pairwise_judge(
+            arena_id, variant_a, variant_b, judge_runner, judge_model, criteria_profile, timeout_sec
+        )
 
     @mcp.tool
     def arena_judge_all_pairs(

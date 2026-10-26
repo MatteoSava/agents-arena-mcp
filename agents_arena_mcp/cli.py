@@ -2,8 +2,9 @@ from __future__ import annotations
 
 import argparse
 import json
+from collections.abc import Callable
 from pathlib import Path
-from typing import Any, Callable
+from typing import Any
 
 from agents_arena_mcp import __version__
 from agents_arena_mcp.core.arena import ArenaEngine
@@ -63,7 +64,9 @@ CMD_INFO: dict[str, dict[str, str | list[str] | DryRunArgsExtractor | DryRunText
             "model": args.model,
             "timeout_sec": args.timeout_sec,
         },
-        "description": lambda args: f"Would run the {args.runner} agent for variant {args.variant!r} in arena {args.arena_id!r}.",
+        "description": lambda args: (
+            f"Would run the {args.runner} agent for variant {args.variant!r} in arena {args.arena_id!r}."
+        ),
         "side_effects": [
             "Runs an implementation agent inside the variant worktree",
             "Records the run in arena state",
@@ -106,7 +109,9 @@ CMD_INFO: dict[str, dict[str, str | list[str] | DryRunArgsExtractor | DryRunText
             "judge_runner": args.judge_runner,
             "judge_model": args.judge_model,
         },
-        "description": lambda args: f"Would judge variant {args.variant_a!r} against {args.variant_b!r} in arena {args.arena_id!r}.",
+        "description": lambda args: (
+            f"Would judge variant {args.variant_a!r} against {args.variant_b!r} in arena {args.arena_id!r}."
+        ),
         "side_effects": [
             "May record missing variant diffs before judging",
             "Runs heuristic or external judging",
@@ -133,7 +138,9 @@ CMD_INFO: dict[str, dict[str, str | list[str] | DryRunArgsExtractor | DryRunText
     "score": {
         "engine_method": "score",
         "args": lambda args: {"arena_id": args.arena_id, "weights_profile": args.weights_profile},
-        "description": lambda args: f"Would score variants for arena {args.arena_id!r} using the {args.weights_profile!r} profile.",
+        "description": lambda args: (
+            f"Would score variants for arena {args.arena_id!r} using the {args.weights_profile!r} profile."
+        ),
         "side_effects": [
             "Computes deterministic and Elo-based scores",
             "Updates the stored winner in .agents-arena/state/",
@@ -204,7 +211,9 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="agents-arena", description="Agents Arena MCP CLI")
     parser.add_argument("--version", action="version", version=f"%(prog)s {__version__}")
     parser.add_argument("--repo", default=None, help="Repository root. Defaults to git root/cwd/env.")
-    parser.add_argument("--dry-run", action="store_true", help="Show the engine call and side effects without running it.")
+    parser.add_argument(
+        "--dry-run", action="store_true", help="Show the engine call and side effects without running it."
+    )
     sub = parser.add_subparsers(dest="cmd", required=True)
 
     p = sub.add_parser("open", help="Create a new arena")
@@ -293,9 +302,15 @@ def main(argv: list[str] | None = None) -> int:
         elif args.cmd == "checks":
             print_json(engine.run_checks(args.arena_id, args.variant, args.commands, args.timeout_sec))
         elif args.cmd == "judge":
-            print_json(engine.pairwise_judge(args.arena_id, args.variant_a, args.variant_b, args.judge_runner, args.judge_model))
+            print_json(
+                engine.pairwise_judge(
+                    args.arena_id, args.variant_a, args.variant_b, args.judge_runner, args.judge_model
+                )
+            )
         elif args.cmd == "judge-all":
-            print_json(engine.judge_all_pairs(args.arena_id, args.judge_runner, args.judge_model, args.max_pairs, args.mode))
+            print_json(
+                engine.judge_all_pairs(args.arena_id, args.judge_runner, args.judge_model, args.max_pairs, args.mode)
+            )
         elif args.cmd == "score":
             print_json(engine.score(args.arena_id, args.weights_profile))
         elif args.cmd == "scoreboard":

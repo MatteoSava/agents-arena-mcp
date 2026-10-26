@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import itertools
-import json
 import shlex
 from pathlib import Path
 from typing import Any
@@ -21,7 +20,16 @@ from agents_arena_mcp.core.git_worktrees import (
 from agents_arena_mcp.core.policy import assert_command_allowed, init_policy, load_policy, path_has_secret_signal
 from agents_arena_mcp.core.scoring import deterministic_variant_score
 from agents_arena_mcp.core.telemetry import RunLedger, new_run_id
-from agents_arena_mcp.core.util import append_jsonl, ensure_dir, find_executable, read_json, run_cmd, sha256_text, slugify, utc_now, write_json
+from agents_arena_mcp.core.util import (
+    append_jsonl,
+    ensure_dir,
+    find_executable,
+    read_json,
+    run_cmd,
+    slugify,
+    utc_now,
+    write_json,
+)
 from agents_arena_mcp.judges.pairwise import external_judge, heuristic_pairwise
 from agents_arena_mcp.runners import get_runner
 from agents_arena_mcp.runners.base import RunnerRequest
@@ -83,7 +91,11 @@ class ArenaEngine:
         include_current_diff: bool = False,
         risk_level: str = "normal",
     ) -> dict[str, Any]:
-        if is_dirty(self.repo_root) and not include_current_diff and self.policy.get("worktrees", {}).get("refuse_dirty_repo_by_default", True):
+        if (
+            is_dirty(self.repo_root)
+            and not include_current_diff
+            and self.policy.get("worktrees", {}).get("refuse_dirty_repo_by_default", True)
+        ):
             raise ArenaError("Working tree is dirty. Commit/stash changes or pass include_current_diff=True.")
         variants = variants or list(self.policy.get("variants", []))
         variants = [slugify(v) for v in variants]
@@ -123,7 +135,10 @@ class ArenaEngine:
             "updated_at": utc_now(),
             "include_current_diff": include_current_diff,
             "variants": variant_records,
-            "pairwise": {"results": [], "elo": {v: self.policy.get("pairwise", {}).get("initial_elo", 1500) for v in variants}},
+            "pairwise": {
+                "results": [],
+                "elo": {v: self.policy.get("pairwise", {}).get("initial_elo", 1500) for v in variants},
+            },
             "winner": None,
         }
         self._save_arena(arena)
@@ -143,7 +158,8 @@ class ArenaEngine:
                     "state": v.get("state"),
                     "worktree": v.get("worktree"),
                     "files_changed": (v.get("diff") or {}).get("files_changed"),
-                    "checks": v.get("checks", {}).get("status") or ("passed" if v.get("checks", {}).get("passed") else "pending"),
+                    "checks": v.get("checks", {}).get("status")
+                    or ("passed" if v.get("checks", {}).get("passed") else "pending"),
                     "elo": arena.get("pairwise", {}).get("elo", {}).get(name),
                 }
                 for name, v in arena["variants"].items()
@@ -159,15 +175,15 @@ class ArenaEngine:
 
 Arena: {arena_id}
 Variant: {variant}
-Worktree: {rec['worktree']}
+Worktree: {rec["worktree"]}
 
 ## Original task
 
-{arena['task']}
+{arena["task"]}
 
 ## Strategy
 
-{rec.get('strategy') or STRATEGY_BRIEFS.get(variant, '')}
+{rec.get("strategy") or STRATEGY_BRIEFS.get(variant, "")}
 
 ## Constraints
 
@@ -209,9 +225,13 @@ Worktree: {rec['worktree']}
         )
         metadata = runner_obj.run(request)
         rec["runs"].append(metadata["run_id"])
-        rec["state"] = "agent_run_completed" if metadata.get("status") == "completed" else metadata.get("status", "run_recorded")
+        rec["state"] = (
+            "agent_run_completed" if metadata.get("status") == "completed" else metadata.get("status", "run_recorded")
+        )
         self._save_arena(arena)
-        self._append_arena_event(arena, "variant_run", {"variant": variant, "run_id": metadata["run_id"], "runner": runner})
+        self._append_arena_event(
+            arena, "variant_run", {"variant": variant, "run_id": metadata["run_id"], "runner": runner}
+        )
         return metadata
 
     def record_variant(self, arena_id: str, variant: str, notes: str = "") -> dict[str, Any]:
@@ -235,7 +255,9 @@ Worktree: {rec['worktree']}
         rec["notes"] = notes
         rec["recorded_at"] = utc_now()
         self._save_arena(arena)
-        self._append_arena_event(arena, "variant_recorded", {"variant": variant, "files_changed": diff.get("files_changed")})
+        self._append_arena_event(
+            arena, "variant_recorded", {"variant": variant, "files_changed": diff.get("files_changed")}
+        )
         return rec
 
     def discover_checks(self, changed_files: list[str]) -> list[str]:
@@ -253,7 +275,9 @@ Worktree: {rec['worktree']}
                 deduped.append(cmd)
         return deduped
 
-    def run_checks(self, arena_id: str, variant: str, commands: list[str] | None = None, timeout_sec: int = 300) -> dict[str, Any]:
+    def run_checks(
+        self, arena_id: str, variant: str, commands: list[str] | None = None, timeout_sec: int = 300
+    ) -> dict[str, Any]:
         arena = self.load_arena(arena_id)
         if variant not in arena["variants"]:
             raise ArenaError(f"Unknown variant {variant!r}")
@@ -282,7 +306,12 @@ Worktree: {rec['worktree']}
             if proc.returncode != 0:
                 passed = False
             results.append(item)
-        check_record = {"passed": passed, "status": "passed" if passed else "failed", "commands": results, "updated_at": utc_now()}
+        check_record = {
+            "passed": passed,
+            "status": "passed" if passed else "failed",
+            "commands": results,
+            "updated_at": utc_now(),
+        }
         rec["checks"] = check_record
         rec["state"] = "checked_passed" if passed else "checked_failed"
         self._save_arena(arena)
@@ -373,7 +402,9 @@ Worktree: {rec['worktree']}
         if mode == "all_pairs":
             max_variants = self.policy.get("pairwise", {}).get("max_all_pairs_variants", 5)
             if len(variants) > max_variants and max_pairs is None:
-                raise ArenaError(f"All-pairs mode limited to {max_variants} variants by policy. Set max_pairs or use fewer variants.")
+                raise ArenaError(
+                    f"All-pairs mode limited to {max_variants} variants by policy. Set max_pairs or use fewer variants."
+                )
         elif mode == "top_k_playoff":
             pairs = pairs[: max_pairs or min(6, len(pairs))]
         elif mode == "swiss":
@@ -382,13 +413,17 @@ Worktree: {rec['worktree']}
             raise ArenaError(f"Unsupported pairwise mode: {mode}")
         if max_pairs is not None:
             pairs = pairs[:max_pairs]
-        results = [self.pairwise_judge(arena_id, a, b, judge_runner=judge_runner, judge_model=judge_model) for a, b in pairs]
+        results = [
+            self.pairwise_judge(arena_id, a, b, judge_runner=judge_runner, judge_model=judge_model) for a, b in pairs
+        ]
         scoreboard = self.scoreboard(arena_id, include_metadata=True)
         return {"arena_id": arena_id, "pairs": len(results), "results": results, "scoreboard": scoreboard}
 
     def score(self, arena_id: str, weights_profile: str = "balanced") -> dict[str, Any]:
         arena = self.load_arena(arena_id)
-        weights = self.policy.get("scoring_profiles", {}).get(weights_profile) or self.policy["scoring_profiles"]["balanced"]
+        weights = (
+            self.policy.get("scoring_profiles", {}).get(weights_profile) or self.policy["scoring_profiles"]["balanced"]
+        )
         variant_scores = {}
         any_passed = any((v.get("checks", {}) or {}).get("passed") is True for v in arena["variants"].values())
         for name, rec in arena["variants"].items():
@@ -401,7 +436,11 @@ Worktree: {rec['worktree']}
             if any(str(flag).startswith("critical") for flag in rec.get("risk_flags", [])):
                 hard_gate_failed = True
                 reasons.append("security_critical_cannot_win")
-            elo = arena.get("pairwise", {}).get("elo", {}).get(name, self.policy.get("pairwise", {}).get("initial_elo", 1500))
+            elo = (
+                arena.get("pairwise", {})
+                .get("elo", {})
+                .get(name, self.policy.get("pairwise", {}).get("initial_elo", 1500))
+            )
             elo_component = max(0, min(100, 50 + (elo - 1500) / 4))
             total = det["score"] + (weights.get("elo", 0) * elo_component / 100)
             variant_scores[name] = {
@@ -419,7 +458,9 @@ Worktree: {rec['worktree']}
         self._save_arena(arena)
         return {"arena_id": arena_id, "winner": winner, "scores": variant_scores, "weights_profile": weights_profile}
 
-    def scoreboard(self, arena_id: str, include_metadata: bool = True, include_pairwise_matrix: bool = True) -> dict[str, Any]:
+    def scoreboard(
+        self, arena_id: str, include_metadata: bool = True, include_pairwise_matrix: bool = True
+    ) -> dict[str, Any]:
         arena = self.load_arena(arena_id)
         score = self.score(arena_id)
         arena = self.load_arena(arena_id)
@@ -443,37 +484,57 @@ Worktree: {rec['worktree']}
                     if isinstance(timing.get("wall_ms"), int):
                         latency_total += timing["wall_ms"]
             wl = self._win_loss_draw(name, pairwise_results)
-            rows.append({
-                "variant": name,
-                "elo": arena.get("pairwise", {}).get("elo", {}).get(name),
-                "wld": wl,
-                "tests": checks.get("status") or ("pass" if checks.get("passed") else "pending"),
-                "risk": "critical" if any(str(f).startswith("critical") for f in rec.get("risk_flags", [])) else "flagged" if rec.get("risk_flags") else "normal",
-                "diff": f"{diff.get('files_changed', 0)} files / +{diff.get('lines_added', 0)} -{diff.get('lines_removed', 0)}",
-                "tokens": tokens_total or None,
-                "latency_ms": latency_total or None,
-                "score": score["scores"].get(name, {}).get("score"),
-            })
+            rows.append(
+                {
+                    "variant": name,
+                    "elo": arena.get("pairwise", {}).get("elo", {}).get(name),
+                    "wld": wl,
+                    "tests": checks.get("status") or ("pass" if checks.get("passed") else "pending"),
+                    "risk": "critical"
+                    if any(str(f).startswith("critical") for f in rec.get("risk_flags", []))
+                    else "flagged"
+                    if rec.get("risk_flags")
+                    else "normal",
+                    "diff": f"{diff.get('files_changed', 0)} files / +{diff.get('lines_added', 0)} -{diff.get('lines_removed', 0)}",
+                    "tokens": tokens_total or None,
+                    "latency_ms": latency_total or None,
+                    "score": score["scores"].get(name, {}).get("score"),
+                }
+            )
         rows.sort(key=lambda r: (r.get("score") or 0, r.get("elo") or 0), reverse=True)
-        markdown = self._render_scoreboard_markdown(arena, rows, score, pairwise_results if include_pairwise_matrix else [])
+        markdown = self._render_scoreboard_markdown(
+            arena, rows, score, pairwise_results if include_pairwise_matrix else []
+        )
         report_path = self.reports_dir / f"{arena_id}-scoreboard.md"
         report_path.write_text(markdown, encoding="utf-8")
-        return {"arena_id": arena_id, "winner": score.get("winner"), "rows": rows, "report_path": str(report_path), "markdown": markdown}
+        return {
+            "arena_id": arena_id,
+            "winner": score.get("winner"),
+            "rows": rows,
+            "report_path": str(report_path),
+            "markdown": markdown,
+        }
 
     def _win_loss_draw(self, variant: str, results: list[dict[str, Any]]) -> str:
-        w = l = d = 0
+        wins = losses = draws = 0
         for r in results:
             if variant not in {r.get("variant_a"), r.get("variant_b")}:
                 continue
             if r.get("winner") == "draw":
-                d += 1
+                draws += 1
             elif r.get("winner") == variant:
-                w += 1
+                wins += 1
             else:
-                l += 1
-        return f"{w}-{l}-{d}"
+                losses += 1
+        return f"{wins}-{losses}-{draws}"
 
-    def _render_scoreboard_markdown(self, arena: dict[str, Any], rows: list[dict[str, Any]], score: dict[str, Any], pairwise_results: list[dict[str, Any]]) -> str:
+    def _render_scoreboard_markdown(
+        self,
+        arena: dict[str, Any],
+        rows: list[dict[str, Any]],
+        score: dict[str, Any],
+        pairwise_results: list[dict[str, Any]],
+    ) -> str:
         lines = [
             "# Agents Arena Scoreboard",
             "",
@@ -512,7 +573,9 @@ Worktree: {rec['worktree']}
             lines.extend(["", "## Pairwise reasons", ""])
             for r in pairwise_results:
                 reasons = "; ".join(r.get("reasons", [])[:3])
-                lines.append(f"- `{r.get('variant_a')}` vs `{r.get('variant_b')}` → **{r.get('winner')}** ({r.get('confidence')}, {r.get('margin')}): {reasons}")
+                lines.append(
+                    f"- `{r.get('variant_a')}` vs `{r.get('variant_b')}` → **{r.get('winner')}** ({r.get('confidence')}, {r.get('margin')}): {reasons}"
+                )
         return "\n".join(lines) + "\n"
 
     def promote_winner(self, arena_id: str, variant: str | None = None, mode: str = "patch") -> dict[str, Any]:
@@ -528,7 +591,12 @@ Worktree: {rec['worktree']}
         source_patch = Path(rec["diff"].get("patch_path"))
         winner_patch = self.patches_dir / f"{arena_id}-winner-{variant}.patch"
         winner_patch.write_text(source_patch.read_text(encoding="utf-8"), encoding="utf-8")
-        result: dict[str, Any] = {"arena_id": arena_id, "variant": variant, "mode": mode, "patch_path": str(winner_patch)}
+        result: dict[str, Any] = {
+            "arena_id": arena_id,
+            "variant": variant,
+            "mode": mode,
+            "patch_path": str(winner_patch),
+        }
         if mode == "apply":
             proc = run_cmd(["git", "apply", str(winner_patch)], cwd=self.repo_root, check=False)
             result.update({"applied": proc.returncode == 0, "stdout": proc.stdout, "stderr": proc.stderr})
@@ -538,7 +606,9 @@ Worktree: {rec['worktree']}
             branch = f"arena/winner/{arena_id}/{variant}"[:240]
             run_cmd(["git", "checkout", "-b", branch, arena["base_commit"]], cwd=self.repo_root, check=True)
             proc = run_cmd(["git", "apply", str(winner_patch)], cwd=self.repo_root, check=False)
-            result.update({"branch": branch, "applied": proc.returncode == 0, "stdout": proc.stdout, "stderr": proc.stderr})
+            result.update(
+                {"branch": branch, "applied": proc.returncode == 0, "stdout": proc.stdout, "stderr": proc.stderr}
+            )
             if proc.returncode != 0:
                 raise ArenaError(f"Failed to apply winner patch on branch:\n{proc.stderr or proc.stdout}")
         elif mode != "patch":
@@ -557,20 +627,26 @@ Worktree: {rec['worktree']}
         summary_path = self.reports_dir / f"{arena_id}-pr-summary.md"
         summary = f"""# PR Summary from Agents Arena
 
-Task: {arena.get('task')}
+Task: {arena.get("task")}
 
 Winner: {winner}
 
 Artifacts:
-- Scoreboard: {sb['report_path']}
-- Winner patch: {patch['patch_path']}
+- Scoreboard: {sb["report_path"]}
+- Winner patch: {patch["patch_path"]}
 
 ## Why this variant won
 
 See the scoreboard report for pairwise matrix, Elo ratings, checks, risk flags, and telemetry.
 """
         summary_path.write_text(summary, encoding="utf-8")
-        return {"arena_id": arena_id, "winner": winner, "scoreboard_path": sb["report_path"], "winner_patch_path": patch["patch_path"], "pr_summary_path": str(summary_path)}
+        return {
+            "arena_id": arena_id,
+            "winner": winner,
+            "scoreboard_path": sb["report_path"],
+            "winner_patch_path": patch["patch_path"],
+            "pr_summary_path": str(summary_path),
+        }
 
     def cleanup(self, arena_id: str, keep_patches: bool = True) -> dict[str, Any]:
         arena = self.load_arena(arena_id)
