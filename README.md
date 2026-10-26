@@ -48,9 +48,11 @@ No cloud services. No API keys required. Everything stays local.
 ### Install
 
 ```bash
+uv tool install git+https://github.com/MatteoSava/agents-arena-mcp.git
+# or, from a clone:
 git clone https://github.com/MatteoSava/agents-arena-mcp.git
 cd agents-arena-mcp
-pip install -e .
+uv sync
 ```
 
 ### Open an arena
@@ -315,8 +317,8 @@ Global flags: `--repo <path>` · `--dry-run` · `--version`
 ## Development
 
 ```bash
-pip install -e '.[dev]'
-pytest
+uv sync
+uv run pytest
 ```
 
 ---
