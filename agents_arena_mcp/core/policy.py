@@ -99,8 +99,8 @@ DEFAULT_POLICY: dict[str, Any] = {
         ],
         "secret_path_patterns": [
             r"(^|/)\.env($|\.)",
-            r"secret",
-            r"credential",
+            r"(^|/)secrets?(/|\.[a-z0-9]+$|$)",
+            r"(^|/)credentials?(/|\.[a-z0-9]+$|$)",
             r"private[_-]?key",
             r"id_rsa",
             r"id_ed25519",
