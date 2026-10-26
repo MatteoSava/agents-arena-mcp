@@ -5,7 +5,9 @@ import json
 import os
 import re
 import shutil
+import signal
 import subprocess
+from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
@@ -81,3 +83,27 @@ def run_cmd(
 
 def find_executable(name: str) -> str | None:
     return shutil.which(name)
+
+
+@dataclass
+class ShellOutcome:
+    status: str  # passed | failed | error | timeout
+    exit_code: int | None
+    stdout: str
+    stderr: str
+
+
+def run_shell(command: str, cwd: Path, timeout: int) -> ShellOutcome:
+    """Run a check command via `sh -c`. Missing tools (127) are errors; timeouts kill the process group."""
+    proc = subprocess.Popen(
+        ["sh", "-c", command], cwd=cwd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, start_new_session=True
+    )
+    try:
+        out, err = proc.communicate(timeout=timeout)
+    except subprocess.TimeoutExpired:
+        os.killpg(proc.pid, signal.SIGKILL)
+        out, err = proc.communicate()
+        return ShellOutcome("timeout", None, out.decode("utf-8", "replace"), err.decode("utf-8", "replace"))
+    code = proc.returncode
+    status = "passed" if code == 0 else "error" if code in (126, 127) else "failed"
+    return ShellOutcome(status, code, out.decode("utf-8", "replace"), err.decode("utf-8", "replace"))

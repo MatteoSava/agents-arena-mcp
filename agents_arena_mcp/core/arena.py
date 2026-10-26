@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import itertools
-import shlex
 import shutil
 from pathlib import Path
 from typing import Any
@@ -30,6 +29,7 @@ from agents_arena_mcp.core.util import (
     find_executable,
     read_json,
     run_cmd,
+    run_shell,
     slugify,
     utc_now,
     write_json,
@@ -310,17 +310,17 @@ Worktree: {rec["worktree"]}
         for command in commands:
             assert_command_allowed(command, self.policy)
             started = utc_now()
-            proc = run_cmd(shlex.split(command), cwd=worktree, timeout=timeout_sec, check=False)
+            outcome = run_shell(command, cwd=worktree, timeout=timeout_sec)
             item = {
                 "command": command,
-                "status": "passed" if proc.returncode == 0 else "failed",
-                "exit_code": proc.returncode,
+                "status": outcome.status,
+                "exit_code": outcome.exit_code,
                 "started_at": started,
                 "ended_at": utc_now(),
-                "stdout_excerpt": proc.stdout[-4000:],
-                "stderr_excerpt": proc.stderr[-4000:],
+                "stdout_excerpt": outcome.stdout[-4000:],
+                "stderr_excerpt": outcome.stderr[-4000:],
             }
-            if proc.returncode != 0:
+            if outcome.status != "passed":
                 passed = False
             results.append(item)
         check_record = {
