@@ -18,7 +18,7 @@ class OpenCodeRunRunner:
         run_id = new_run_id("opencode")
         run_dir = ledger.run_dir(run_id)
         prompt_path = ledger.write_prompt(run_id, request.prompt)
-        cmd = [exe, "run", "--dir", str(request.worktree), "--format", "json"]
+        cmd = [exe, "run", "--format", "json"]
         if request.model:
             cmd.extend(["--model", request.model])
         cmd.append(request.prompt)

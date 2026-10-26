@@ -178,7 +178,7 @@ def external_judge(
         exe = find_executable("opencode")
         if not exe:
             raise RuntimeError("opencode executable not found")
-        cmd = [exe, "run", "--dir", str(repo_root), "--format", "json"]
+        cmd = [exe, "run", "--format", "json"]
         if model:
             cmd.extend(["--model", model])
         cmd.append(prompt)
