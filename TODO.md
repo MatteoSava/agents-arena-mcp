@@ -6,22 +6,22 @@ confirmed bugs, rebuild on a small typed core, and make selection trustworthy.
 The checkpoint and branching features come after that.
 
 ## Phase A0: Tooling
-- [TODO] MIT LICENSE, seeded TODO.md, README install via uv/uvx
-- [TODO] python>=3.11, pin fastmcp, declare pydantic, dev group (pytest, ruff, basedpyright)
-- [TODO] ruff fixes + format
-- [TODO] CI on macOS + Linux
+- [DONE] MIT LICENSE, seeded TODO.md, README install via uv/uvx
+- [DONE] python>=3.11, pin fastmcp, declare pydantic, dev group (pytest, ruff, basedpyright)
+- [DONE] ruff fixes + format
+- [DONE] CI on macOS + Linux
 
 ## Phase A1: Bug fixes (failing test first)
-- [BUG] Untracked files dropped from variant diff
-- [BUG] include_current_diff never carries uncommitted changes into worktrees
-- [BUG] Cleanup leaks branches and worktree dirs; partial open has no rollback
-- [BUG] promote --mode branch switches the user's checkout
-- [BUG] opencode runner/judge pass nonexistent `--dir`
-- [BUG] Missing executable / timeout in checks raises instead of being recorded
-- [BUG] score()/scoreboard() write the winner; current-arena follows last save; read-only calls create state
-- [BUG] Secret path patterns over-match (`docs/secrets-handling.md`)
-- [BUG] Non-UTF-8 diff crashes diff_against
-- [BUG] No locking; fixed `.json.tmp` name collides between writers
+- [DONE] Untracked files dropped from variant diff
+- [DONE] include_current_diff never carries uncommitted changes into worktrees
+- [DONE] Cleanup leaks branches and worktree dirs; partial open has no rollback
+- [DONE] promote --mode branch switches the user's checkout
+- [DONE] opencode runner/judge pass nonexistent `--dir`
+- [DONE] Missing executable / timeout in checks raises instead of being recorded
+- [DONE] score()/scoreboard() write the winner; current-arena follows last save; read-only calls create state
+- [DONE] Secret path patterns over-match (`docs/secrets-handling.md`)
+- [DONE] Non-UTF-8 diff crashes diff_against
+- [DONE] No locking; fixed `.json.tmp` name collides between writers
 
 ## Phase A2: Refactor
 - [REFACTOR] Single subprocess helper
@@ -32,7 +32,7 @@ The checkpoint and branching features come after that.
 
 ## Phase A3: New surface
 - [TODO] 13 -> 7 MCP tools, OPS registry, argparse parity test
-- [TODO] `agents-arena init`, drop install.py / project_scaffold / references / evals
+- [TODO] `agents-arena init`, drop install.py / project_scaffold / references / old evals/trigger-queries.json
 - [TODO] Legacy state detection with cleanup instructions
 - [TODO] README + skill rewrite
 
@@ -44,6 +44,10 @@ The checkpoint and branching features come after that.
 - [TODO] claude runner; same-family judge warning
 - [TODO] Copeland + deterministic tie-break; remove Elo
 - [TODO] Report, ledger, v0.2.0 release
+- [TODO] Judge prompt as editable template (data/judge.md.tmpl, config override)
+- [TODO] Judge eval harness (evals/judge/, `agents-arena eval-judge`: accuracy, order-flip rate, tie rate, cost)
+- [TODO] MCP progress notifications (ctx.report_progress) for wait=True runs/judging
+- [DEFERRED] MCP background tasks (task=True): needs fastmcp[tasks]/pydocket + async tools + client support
 
 ## Phase C: Checkpoints + bounded search (opt-in)
 - [TODO] Numbered checkpoints, arena_fork with APFS clone fallback

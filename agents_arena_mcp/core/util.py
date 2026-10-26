@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import fcntl
 import hashlib
 import json
 import os
@@ -7,6 +8,10 @@ import re
 import shutil
 import signal
 import subprocess
+import tempfile
+import threading
+from collections.abc import Iterator
+from contextlib import contextmanager
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
@@ -44,11 +49,34 @@ def read_json(path: Path, default: Any = None) -> Any:
 
 def write_json(path: Path, data: Any) -> None:
     ensure_dir(path.parent)
-    tmp = path.with_suffix(path.suffix + ".tmp")
-    with tmp.open("w", encoding="utf-8") as fh:
+    fd, tmp = tempfile.mkstemp(dir=path.parent, prefix=f".{path.name}.", suffix=".tmp")
+    with os.fdopen(fd, "w", encoding="utf-8") as fh:
         json.dump(data, fh, indent=2, sort_keys=True)
         fh.write("\n")
-    tmp.replace(path)
+    os.replace(tmp, path)
+
+
+_held_locks = threading.local()
+
+
+@contextmanager
+def file_lock(path: Path) -> Iterator[None]:
+    """Exclusive flock on `path`, re-entrant within a thread."""
+    held: set[str] = getattr(_held_locks, "paths", None) or set()
+    _held_locks.paths = held
+    key = str(path)
+    if key in held:
+        yield
+        return
+    ensure_dir(path.parent)
+    with path.open("a") as fh:
+        fcntl.flock(fh, fcntl.LOCK_EX)
+        held.add(key)
+        try:
+            yield
+        finally:
+            held.discard(key)
+            fcntl.flock(fh, fcntl.LOCK_UN)
 
 
 def append_jsonl(path: Path, data: dict[str, Any]) -> None:

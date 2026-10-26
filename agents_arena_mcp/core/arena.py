@@ -26,6 +26,7 @@ from agents_arena_mcp.core.telemetry import RunLedger, new_run_id
 from agents_arena_mcp.core.util import (
     append_jsonl,
     ensure_dir,
+    file_lock,
     find_executable,
     read_json,
     run_cmd,
@@ -56,11 +57,7 @@ class ArenaEngine:
         self.state_dir = self.base_dir / "state"
         self.reports_dir = self.base_dir / "reports"
         self.patches_dir = self.base_dir / "patches"
-        self.logs_dir = self.base_dir / "logs"
-        for path in [self.base_dir, self.state_dir, self.reports_dir, self.patches_dir, self.logs_dir]:
-            ensure_dir(path)
         self.policy = load_policy(self.repo_root)
-        init_policy(self.repo_root)
 
     @property
     def current_arena_path(self) -> Path:
@@ -72,7 +69,9 @@ class ArenaEngine:
     def _save_arena(self, arena: dict[str, Any]) -> None:
         arena["updated_at"] = utc_now()
         write_json(self._arena_path(arena["arena_id"]), arena)
-        write_json(self.current_arena_path, arena)
+
+    def _locked(self, arena_id: str):
+        return file_lock(self.state_dir / f"{arena_id}.lock")
 
     def _append_arena_event(self, arena: dict[str, Any], event: str, data: dict[str, Any] | None = None) -> None:
         append_jsonl(
@@ -81,8 +80,9 @@ class ArenaEngine:
         )
 
     def load_arena(self, arena_id: str | None = None) -> dict[str, Any]:
-        path = self.current_arena_path if arena_id is None else self._arena_path(arena_id)
-        arena = read_json(path)
+        if arena_id is None:
+            arena_id = (read_json(self.current_arena_path) or {}).get("arena_id")
+        arena = read_json(self._arena_path(arena_id)) if arena_id else None
         if not arena:
             raise ArenaError(f"Arena not found: {arena_id or 'current'}")
         return arena
@@ -157,7 +157,9 @@ class ArenaEngine:
             },
             "winner": None,
         }
+        init_policy(self.repo_root)
         self._save_arena(arena)
+        write_json(self.current_arena_path, {"arena_id": arena_id})
         self._append_arena_event(arena, "arena_open", {"variants": variants})
         return arena
 
@@ -212,7 +214,7 @@ Worktree: {rec["worktree"]}
 """
         return {"arena_id": arena_id, "variant": variant, "worktree": rec["worktree"], "brief": prompt}
 
-    def run_variant_agent(
+    def _run_variant_agent(
         self,
         arena_id: str,
         variant: str,
@@ -250,7 +252,7 @@ Worktree: {rec["worktree"]}
         )
         return metadata
 
-    def record_variant(self, arena_id: str, variant: str, notes: str = "") -> dict[str, Any]:
+    def _record_variant(self, arena_id: str, variant: str, notes: str = "") -> dict[str, Any]:
         arena = self.load_arena(arena_id)
         if variant not in arena["variants"]:
             raise ArenaError(f"Unknown variant {variant!r}")
@@ -292,7 +294,7 @@ Worktree: {rec["worktree"]}
                 deduped.append(cmd)
         return deduped
 
-    def run_checks(
+    def _run_checks(
         self, arena_id: str, variant: str, commands: list[str] | None = None, timeout_sec: int = 300
     ) -> dict[str, Any]:
         arena = self.load_arena(arena_id)
@@ -301,7 +303,7 @@ Worktree: {rec["worktree"]}
         rec = arena["variants"][variant]
         worktree = Path(rec["worktree"])
         if not rec.get("diff"):
-            self.record_variant(arena_id, variant)
+            self._record_variant(arena_id, variant)
             arena = self.load_arena(arena_id)
             rec = arena["variants"][variant]
         commands = commands or self.discover_checks(rec.get("diff", {}).get("changed_files", []))
@@ -335,7 +337,7 @@ Worktree: {rec["worktree"]}
         self._append_arena_event(arena, "checks_run", {"variant": variant, "passed": passed})
         return check_record
 
-    def pairwise_judge(
+    def _pairwise_judge(
         self,
         arena_id: str,
         variant_a: str,
@@ -350,7 +352,7 @@ Worktree: {rec["worktree"]}
             if v not in arena["variants"]:
                 raise ArenaError(f"Unknown variant {v!r}")
             if not arena["variants"][v].get("diff"):
-                self.record_variant(arena_id, v)
+                self._record_variant(arena_id, v)
                 arena = self.load_arena(arena_id)
         if judge_runner == "auto":
             if find_executable("codex"):
@@ -431,7 +433,7 @@ Worktree: {rec["worktree"]}
         if max_pairs is not None:
             pairs = pairs[:max_pairs]
         results = [
-            self.pairwise_judge(arena_id, a, b, judge_runner=judge_runner, judge_model=judge_model) for a, b in pairs
+            self._pairwise_judge(arena_id, a, b, judge_runner=judge_runner, judge_model=judge_model) for a, b in pairs
         ]
         scoreboard = self.scoreboard(arena_id, include_metadata=True)
         return {"arena_id": arena_id, "pairs": len(results), "results": results, "scoreboard": scoreboard}
@@ -471,8 +473,6 @@ Worktree: {rec["worktree"]}
             }
         eligible = {k: v for k, v in variant_scores.items() if not v["hard_gate_failed"]}
         winner = max(eligible or variant_scores, key=lambda k: variant_scores[k]["score"]) if variant_scores else None
-        arena["winner"] = winner
-        self._save_arena(arena)
         return {"arena_id": arena_id, "winner": winner, "scores": variant_scores, "weights_profile": weights_profile}
 
     def scoreboard(
@@ -522,7 +522,7 @@ Worktree: {rec["worktree"]}
         markdown = self._render_scoreboard_markdown(
             arena, rows, score, pairwise_results if include_pairwise_matrix else []
         )
-        report_path = self.reports_dir / f"{arena_id}-scoreboard.md"
+        report_path = ensure_dir(self.reports_dir) / f"{arena_id}-scoreboard.md"
         report_path.write_text(markdown, encoding="utf-8")
         return {
             "arena_id": arena_id,
@@ -595,18 +595,18 @@ Worktree: {rec["worktree"]}
                 )
         return "\n".join(lines) + "\n"
 
-    def promote_winner(self, arena_id: str, variant: str | None = None, mode: str = "patch") -> dict[str, Any]:
+    def _promote_winner(self, arena_id: str, variant: str | None = None, mode: str = "patch") -> dict[str, Any]:
         arena = self.load_arena(arena_id)
         variant = variant or arena.get("winner") or self.score(arena_id)["winner"]
         if not variant or variant not in arena["variants"]:
             raise ArenaError("No valid winner to promote")
         rec = arena["variants"][variant]
         if not rec.get("diff"):
-            self.record_variant(arena_id, variant)
+            self._record_variant(arena_id, variant)
             arena = self.load_arena(arena_id)
             rec = arena["variants"][variant]
         source_patch = Path(rec["diff"].get("patch_path"))
-        winner_patch = self.patches_dir / f"{arena_id}-winner-{variant}.patch"
+        winner_patch = ensure_dir(self.patches_dir) / f"{arena_id}-winner-{variant}.patch"
         winner_patch.write_bytes(source_patch.read_bytes())
         result: dict[str, Any] = {
             "arena_id": arena_id,
@@ -637,8 +637,8 @@ Worktree: {rec["worktree"]}
         sb = self.scoreboard(arena_id)
         arena = self.load_arena(arena_id)
         winner = arena.get("winner") or sb.get("winner")
-        patch = self.promote_winner(arena_id, winner, mode="patch")
-        summary_path = self.reports_dir / f"{arena_id}-pr-summary.md"
+        patch = self._promote_winner(arena_id, winner, mode="patch")
+        summary_path = ensure_dir(self.reports_dir) / f"{arena_id}-pr-summary.md"
         summary = f"""# PR Summary from Agents Arena
 
 Task: {arena.get("task")}
@@ -667,7 +667,7 @@ See the scoreboard report for pairwise matrix, Elo ratings, checks, risk flags, 
         delete_branch(self.repo_root, rec["branch"])
         return result
 
-    def cleanup(self, arena_id: str, keep_patches: bool = True) -> dict[str, Any]:
+    def _cleanup(self, arena_id: str, keep_patches: bool = True) -> dict[str, Any]:
         arena = self.load_arena(arena_id)
         results = {}
         roots = set()
@@ -684,3 +684,27 @@ See the scoreboard report for pairwise matrix, Elo ratings, checks, risk flags, 
         self._save_arena(arena)
         self._append_arena_event(arena, "cleanup", results)
         return {"arena_id": arena_id, "removed": results, "keep_patches": keep_patches}
+
+    def run_variant_agent(self, arena_id: str, *args: Any, **kwargs: Any) -> dict[str, Any]:
+        with self._locked(arena_id):
+            return self._run_variant_agent(arena_id, *args, **kwargs)
+
+    def record_variant(self, arena_id: str, *args: Any, **kwargs: Any) -> dict[str, Any]:
+        with self._locked(arena_id):
+            return self._record_variant(arena_id, *args, **kwargs)
+
+    def run_checks(self, arena_id: str, *args: Any, **kwargs: Any) -> dict[str, Any]:
+        with self._locked(arena_id):
+            return self._run_checks(arena_id, *args, **kwargs)
+
+    def pairwise_judge(self, arena_id: str, *args: Any, **kwargs: Any) -> dict[str, Any]:
+        with self._locked(arena_id):
+            return self._pairwise_judge(arena_id, *args, **kwargs)
+
+    def promote_winner(self, arena_id: str, *args: Any, **kwargs: Any) -> dict[str, Any]:
+        with self._locked(arena_id):
+            return self._promote_winner(arena_id, *args, **kwargs)
+
+    def cleanup(self, arena_id: str, *args: Any, **kwargs: Any) -> dict[str, Any]:
+        with self._locked(arena_id):
+            return self._cleanup(arena_id, *args, **kwargs)
