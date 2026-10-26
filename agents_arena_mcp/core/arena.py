@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import itertools
 import shlex
+import shutil
 from pathlib import Path
 from typing import Any
 
@@ -10,12 +11,15 @@ from agents_arena_mcp.core.errors import ArenaError
 from agents_arena_mcp.core.git_worktrees import (
     create_worktree,
     current_commit,
+    delete_branch,
     diff_against,
     discover_repo_root,
     is_dirty,
+    prune_worktrees,
     remove_worktree,
     repo_name,
     resolve_worktree_root,
+    snapshot_commit,
 )
 from agents_arena_mcp.core.policy import assert_command_allowed, init_policy, load_policy, path_has_secret_signal
 from agents_arena_mcp.core.scoring import deterministic_variant_score
@@ -102,26 +106,38 @@ class ArenaEngine:
         if len(set(variants)) != len(variants):
             raise ArenaError("Variant names must be unique after slugification.")
         base_commit = current_commit(self.repo_root, base_ref)
+        if include_current_diff and is_dirty(self.repo_root):
+            # Carry the user's uncommitted work: it becomes the base, so it is never credited to a variant.
+            base_commit = snapshot_commit(self.repo_root, base_commit, "arena base: uncommitted changes")
         arena_id = f"arena-{utc_now().replace(':', '').replace('.', '').replace('Z', 'z')}-{slugify(task, 28)}"
         worktree_root = resolve_worktree_root(self.repo_root, self.policy) / arena_id
         ensure_dir(worktree_root)
         variant_records: dict[str, Any] = {}
-        for variant in variants:
-            branch = f"arena/{arena_id}/{variant}"[:240]
-            worktree_path = worktree_root / variant
-            create_worktree(self.repo_root, worktree_path, branch, base_ref)
-            variant_records[variant] = {
-                "name": variant,
-                "state": "created",
-                "strategy": STRATEGY_BRIEFS.get(variant, "Implement this strategy while preserving task constraints."),
-                "branch": branch,
-                "worktree": str(worktree_path),
-                "created_at": utc_now(),
-                "runs": [],
-                "checks": {},
-                "diff": {},
-                "risk_flags": [],
-            }
+        try:
+            for variant in variants:
+                branch = f"arena/{arena_id}/{variant}"[:240]
+                worktree_path = worktree_root / variant
+                create_worktree(self.repo_root, worktree_path, branch, base_commit)
+                variant_records[variant] = {
+                    "name": variant,
+                    "state": "created",
+                    "strategy": STRATEGY_BRIEFS.get(
+                        variant, "Implement this strategy while preserving task constraints."
+                    ),
+                    "branch": branch,
+                    "worktree": str(worktree_path),
+                    "created_at": utc_now(),
+                    "runs": [],
+                    "checks": {},
+                    "diff": {},
+                    "risk_flags": [],
+                }
+        except Exception:
+            for rec in variant_records.values():
+                self._remove_variant_workspace(rec)
+            shutil.rmtree(worktree_root, ignore_errors=True)
+            prune_worktrees(self.repo_root)
+            raise
         arena = {
             "arena_id": arena_id,
             "task": task,
@@ -248,7 +264,8 @@ Worktree: {rec["worktree"]}
             if f.startswith((".github/workflows/", ".claude/", ".codex/", ".opencode/", ".agents/")):
                 risk_flags.append(f"sensitive_config_path:{f}")
         patch_path = self.patches_dir / f"{arena_id}-{variant}.patch"
-        patch_path.write_text(diff.get("patch", ""), encoding="utf-8")
+        ensure_dir(patch_path.parent)
+        patch_path.write_bytes(diff.pop("patch_bytes"))
         rec["diff"] = diff | {"patch_path": str(patch_path)}
         rec["risk_flags"] = sorted(set(risk_flags))
         rec["state"] = "implemented" if diff.get("files_changed", 0) else "no_changes"
@@ -590,7 +607,7 @@ Worktree: {rec["worktree"]}
             rec = arena["variants"][variant]
         source_patch = Path(rec["diff"].get("patch_path"))
         winner_patch = self.patches_dir / f"{arena_id}-winner-{variant}.patch"
-        winner_patch.write_text(source_patch.read_text(encoding="utf-8"), encoding="utf-8")
+        winner_patch.write_bytes(source_patch.read_bytes())
         result: dict[str, Any] = {
             "arena_id": arena_id,
             "variant": variant,
@@ -603,14 +620,11 @@ Worktree: {rec["worktree"]}
             if proc.returncode != 0:
                 raise ArenaError(f"Failed to apply winner patch:\n{proc.stderr or proc.stdout}")
         elif mode == "branch":
+            # Point a branch at the variant's snapshot commit; never touch the user's checkout.
             branch = f"arena/winner/{arena_id}/{variant}"[:240]
-            run_cmd(["git", "checkout", "-b", branch, arena["base_commit"]], cwd=self.repo_root, check=True)
-            proc = run_cmd(["git", "apply", str(winner_patch)], cwd=self.repo_root, check=False)
-            result.update(
-                {"branch": branch, "applied": proc.returncode == 0, "stdout": proc.stdout, "stderr": proc.stderr}
-            )
-            if proc.returncode != 0:
-                raise ArenaError(f"Failed to apply winner patch on branch:\n{proc.stderr or proc.stdout}")
+            commit = rec["diff"].get("commit") or diff_against(Path(rec["worktree"]), arena["base_commit"])["commit"]
+            run_cmd(["git", "branch", branch, commit], cwd=self.repo_root, check=True)
+            result.update({"branch": branch, "commit": commit})
         elif mode != "patch":
             raise ArenaError("mode must be patch, apply, or branch")
         arena["status"] = "winner_promoted" if mode != "patch" else "winner_exported"
@@ -648,13 +662,24 @@ See the scoreboard report for pairwise matrix, Elo ratings, checks, risk flags, 
             "pr_summary_path": str(summary_path),
         }
 
+    def _remove_variant_workspace(self, rec: dict[str, Any]) -> dict[str, Any]:
+        result = remove_worktree(self.repo_root, Path(rec["worktree"]), force=True)
+        delete_branch(self.repo_root, rec["branch"])
+        return result
+
     def cleanup(self, arena_id: str, keep_patches: bool = True) -> dict[str, Any]:
         arena = self.load_arena(arena_id)
         results = {}
+        roots = set()
         for name, rec in arena["variants"].items():
-            path = Path(rec["worktree"])
-            if path.exists():
-                results[name] = remove_worktree(self.repo_root, path, force=True)
+            results[name] = self._remove_variant_workspace(rec)
+            roots.add(Path(rec["worktree"]).parent)
+        for root in roots:
+            shutil.rmtree(root, ignore_errors=True)
+        prune_worktrees(self.repo_root)
+        if not keep_patches:
+            for rec in arena["variants"].values():
+                Path(rec.get("diff", {}).get("patch_path") or "/nonexistent").unlink(missing_ok=True)
         arena["status"] = "cleaned"
         self._save_arena(arena)
         self._append_arena_event(arena, "cleanup", results)
