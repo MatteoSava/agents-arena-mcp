@@ -4,26 +4,47 @@ build-backend = "hatchling.build"
 
 [project]
 name = "agents-arena-mcp"
-version = "0.1.0"
-description = "FastMCP server for arena-based agentic coding variants, pairwise judging, Elo scoreboards, and run telemetry."
+dynamic = ["version"]
+description = "MCP server and CLI that runs competing coding-agent variants in isolated git worktrees, gates them on evidence, and judges them blind."
 readme = "README.md"
-requires-python = ">=3.10"
+requires-python = ">=3.11"
 license = { text = "MIT" }
-authors = [{ name = "Agents Arena" }]
+authors = [{ name = "Matteo Sava" }]
 dependencies = [
-  "fastmcp>=2.0.0",
+  "fastmcp==3.3.1",
+  "pydantic==2.13.4",
 ]
 
-[project.optional-dependencies]
-dev = ["pytest>=7.4"]
+[dependency-groups]
+dev = [
+    "basedpyright==1.40.2",
+    "pytest==9.0.3",
+    "ruff==0.17.2",
+]
 
 [project.scripts]
 agents-arena = "agents_arena_mcp.cli:main"
 agents-arena-mcp = "agents_arena_mcp.server:main"
 
-[tool.pytest.ini_options]
-testpaths = ["tests"]
-addopts = "-q"
+[tool.hatch.version]
+path = "agents_arena_mcp/__init__.py"
 
 [tool.hatch.build.targets.wheel]
 packages = ["agents_arena_mcp"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"
+markers = ["integration: runs real agent CLIs; enable with AGENTS_ARENA_IT=1"]
+
+[tool.ruff]
+line-length = 120
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B"]
+
+[tool.basedpyright]
+pythonVersion = "3.11"
+typeCheckingMode = "standard"
+include = ["agents_arena_mcp"]
