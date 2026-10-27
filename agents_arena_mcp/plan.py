@@ -114,7 +114,6 @@ def questions(checks: list[Check], setup: str, status: dict[str, dict[str, Any]]
          "why": "Runs once on the base commit and in every run's worktree (e.g. installing dependencies)."},
         {"id": "judge", "question": "Which harness judges quality?", "options": installed + ["none"],
          "why": "Prefer a different model family than the contestants (judges favor their own family)."},
-        {"id": "ship", "question": "Should the winner be promotable as a patch/branch?", "options": [True, False], "default": False},
     ]  # fmt: skip
 
 

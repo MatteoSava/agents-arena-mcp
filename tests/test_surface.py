@@ -88,3 +88,49 @@ def test_cli_init_installs_skills(repo, capsys):
         text = (repo / d / "skills/agents-arena/SKILL.md").read_text()
         assert text.startswith("---\nname: agents-arena") and "arena_plan" in text
     assert cli.main(["init", "--skills", "nope"]) == 2
+
+
+def test_repo_mcp_json_starts_a_working_server():
+    """The server Claude Code launches from this repo's .mcp.json must answer over stdio."""
+    from pathlib import Path
+
+    from fastmcp.client.transports import StdioTransport
+
+    root = Path(__file__).resolve().parent.parent
+    server = json.loads((root / ".mcp.json").read_text())["mcpServers"]["agents-arena"]
+    transport = StdioTransport(server["command"], server["args"], env=server.get("env"), cwd=str(root))
+
+    async def go():
+        async with Client(transport) as c:
+            return await asyncio.wait_for(c.list_tools(), timeout=60)
+
+    assert "arena_plan" in {t.name for t in asyncio.run(go())}
+
+
+def test_cli_ctrl_c_exits_130_without_a_traceback(monkeypatch, capsys):
+    def interrupted(**kwargs):
+        raise KeyboardInterrupt
+
+    monkeypatch.setitem(cli.COMMANDS, "status", interrupted)
+    assert cli.main(["status"]) == 130
+    assert "interrupted" in json.loads(capsys.readouterr().err)["error"]
+
+
+def test_server_exits_on_sigterm(repo):
+    import os
+    import signal
+    import subprocess
+    import sys
+
+    server = subprocess.Popen([sys.executable, "-m", "agents_arena_mcp.server"], stdin=subprocess.PIPE,
+                              stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, env=os.environ.copy())  # fmt: skip
+    init = {"jsonrpc": "2.0", "id": 1, "method": "initialize",
+            "params": {"protocolVersion": "2025-06-18", "capabilities": {}, "clientInfo": {"name": "t", "version": "1"}}}  # fmt: skip
+    server.stdin.write((json.dumps(init) + "\n").encode())
+    server.stdin.flush()
+    assert b'"id":1' in server.stdout.readline()  # serving
+    server.send_signal(signal.SIGTERM)
+    try:
+        assert server.wait(timeout=10) == 128 + signal.SIGTERM
+    finally:
+        server.kill()

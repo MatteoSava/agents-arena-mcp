@@ -71,3 +71,10 @@ def test_names_cannot_contain_double_dots():
     with pytest.raises(ValidationError):
         Contestant(name="a..b", harness="claude")
     assert Contestant(name="a.b", harness="claude").name == "a.b"
+
+
+def test_names_must_make_valid_git_refs():
+    for bad in ("a.", "a.lock"):
+        with pytest.raises(ValidationError):
+            Contestant(name=bad, harness="claude")
+    assert Contestant(name="a.locked", harness="claude").name == "a.locked"

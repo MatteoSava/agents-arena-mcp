@@ -18,9 +18,9 @@ from pydantic import ValidationError
 from agents_arena_mcp.errors import ArenaError
 from agents_arena_mcp.models import Arena
 
-GITIGNORE = "*\n!.gitignore\n!config.toml\n"
+GITIGNORE = "*\n"  # the state dir ignores itself entirely
 LEGACY_HINT = """This repo has state from Agents Arena v0.1 (.agents-arena/state or policy.json).
-v0.2 does not migrate it. Inspect and clean up, then retry:
+This version does not migrate it. Inspect and clean up, then retry:
 
   git worktree list            # remove any arena worktrees: git worktree remove --force <path>
   git branch --list 'arena/*' 'shadow/*'   # then: git branch -D <names>
@@ -83,7 +83,7 @@ class Store:
             raise ArenaError(LEGACY_HINT)
         self.root.mkdir(parents=True, exist_ok=True)
         gitignore = self.root / ".gitignore"
-        if not gitignore.exists():
+        if not gitignore.exists() or gitignore.read_text(encoding="utf-8") != GITIGNORE:  # upgrades the v0.2 file
             gitignore.write_text(GITIGNORE, encoding="utf-8")
 
     # ---- arenas -------------------------------------------------------------

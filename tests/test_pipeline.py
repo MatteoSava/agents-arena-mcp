@@ -27,7 +27,7 @@ def test_runs_every_contestant_times_repeats_and_cleans_up(repo, fakes):
     for run in done.runs.values():
         assert run.state == "done" and [f.path for f in run.snapshot.files] == ["app.py"]
         assert run.metrics.total_tokens == 120 and run.metrics.cost_usd == 0.01 and run.metrics.wall_ms is not None
-    assert not Path(done.worktree_root).exists() or not any(Path(done.worktree_root).iterdir())
+    assert not Path(done.worktree_root).exists() and not Path(done.worktree_root).parent.exists()
     assert len(git(repo, "worktree", "list").splitlines()) == 1
     assert git(repo, "for-each-ref", f"refs/arena/{arena.id}/").count("\n") == 5  # base + 4 runs
 
@@ -150,3 +150,110 @@ def test_status_marks_arena_failed_when_its_job_died(repo, fakes):
 def test_arena_ids_are_unique_within_a_second(repo, fakes):
     store = Store(repo)
     assert pipeline.create(store, spec(fakes)).id != pipeline.create(store, spec(fakes)).id
+
+
+def test_state_dir_is_fully_ignored_by_git(repo):
+    Store(repo).init()
+    assert git(repo, "status", "--porcelain") == ""
+
+
+def test_old_state_gitignore_is_upgraded(repo):
+    state = repo / ".agents-arena"
+    state.mkdir()
+    (state / ".gitignore").write_text("*\n!.gitignore\n!config.toml\n")
+    Store(repo).init()
+    assert (state / ".gitignore").read_text() == "*\n" and git(repo, "status", "--porcelain") == ""
+
+
+def test_setup_runs_in_the_real_environment_even_for_clean_contestants(repo, fakes, tmp_path, monkeypatch):
+    monkeypatch.setenv("HOME", str(tmp_path / "realhome"))
+    store = Store(repo)
+    s = spec(fakes, repeats=1, setup='echo "$HOME" > home.txt',
+             contestants=[command_contestant(fakes, "a", baseline="clean")])  # fmt: skip
+    arena = pipeline.create(store, s)
+    pipeline.execute(store, arena.id, progress=lambda m: None)
+    assert store.load(arena.id).runs["a-1"].state == "done"
+    seen = git(repo, "show", f"refs/arena/{arena.id}/a-1-base:home.txt").strip()
+    assert seen == str(tmp_path / "realhome")
+
+
+def test_interrupt_kills_running_agents_and_marks_the_arena_failed(repo, fakes, monkeypatch):
+    monkeypatch.setenv("FAKE_PLAN", json.dumps({"b": {"sleep": 30, "write": {"b.py": "1\n"}}}))
+    store = Store(repo)
+    arena = pipeline.create(store, spec(fakes, repeats=1))
+
+    def progress(message):
+        if message.startswith("1/2"):
+            raise KeyboardInterrupt
+
+    started = time.monotonic()
+    with pytest.raises(KeyboardInterrupt):
+        pipeline.execute(store, arena.id, progress)
+    assert time.monotonic() - started < 15  # b's 30s agent was killed, not waited for
+    done = store.load(arena.id)
+    assert done.status == "failed" and "interrupted" in done.error
+
+
+def test_foreground_start_is_tracked_as_a_job(repo, fakes):
+    from agents_arena_mcp import arena as arena_ops
+
+    started = arena_ops.arena_start(spec(fakes, repeats=1).model_dump(by_alias=True), wait=True)
+    jobs = arena_ops.arena_status(started["arena_id"])["jobs"]
+    assert [j["status"] for j in jobs] == ["done"]
+
+
+def test_refs_created_during_the_arena_are_reported(repo, fakes):
+    store = Store(repo)
+    sneaky = {"name": "s", "harness": "command", "argv": ["sh", "-c", "git branch sneaky && echo 1 > f.txt"]}
+    arena = pipeline.create(store, spec(fakes, repeats=1, contestants=[sneaky]))
+    pipeline.execute(store, arena.id, progress=lambda m: None)
+    notes = store.load(arena.id).scorecard.notes
+    assert any("refs/heads/sneaky" in n for n in notes), notes
+
+
+def test_stopping_cancels_background_arenas_and_cleans_up(repo, fakes, monkeypatch):
+    from agents_arena_mcp import arena as arena_ops
+    from agents_arena_mcp import jobs
+
+    monkeypatch.setenv("FAKE_PLAN", json.dumps({"a": {"sleep": 30}}))
+    started = arena_ops.arena_start(
+        spec(fakes, repeats=1, contestants=[command_contestant(fakes, "a")]).model_dump(by_alias=True)
+    )
+    store = Store(repo)
+    for _ in range(100):  # wait until the agent is running
+        if store.load(started["arena_id"]).runs["a-1"].state == "running":
+            break
+        time.sleep(0.05)
+    t0 = time.monotonic()
+    jobs.stop_all(timeout=20)
+    assert time.monotonic() - t0 < 15
+    done = store.load(started["arena_id"])
+    assert done.status == "failed" and "interrupted" in done.error
+    assert not Path(done.worktree_root).exists()
+
+
+def test_sigterm_on_the_cli_kills_agents_and_fails_the_arena(repo, tmp_path):
+    import os
+    import secrets
+    import signal
+    import subprocess
+
+    marker = f"61.{secrets.randbelow(10**6):06d}"  # unique, so pgrep only sees this test's agent
+    spec_file = tmp_path / "spec.json"
+    spec_file.write_text(json.dumps({"task": "t", "judge": {"harness": "none"}, "contestants": [
+        {"name": "s", "harness": "command", "argv": ["sh", "-c", f"sleep {marker}"]}]}))  # fmt: skip
+    cli = subprocess.Popen(
+        [sys.executable, "-c", "import sys; from agents_arena_mcp.cli import main; sys.exit(main())",
+         "start", str(spec_file)], env=os.environ.copy(), stdout=subprocess.PIPE, stderr=subprocess.PIPE)  # fmt: skip
+    for _ in range(100):
+        if subprocess.run(["pgrep", "-f", f"^sleep {marker}"], capture_output=True).returncode == 0:
+            break
+        time.sleep(0.1)
+    cli.send_signal(signal.SIGTERM)
+    code = cli.wait(timeout=20)
+    assert code == 128 + signal.SIGTERM, cli.stderr.read().decode()[-1500:]
+    assert subprocess.run(["pgrep", "-f", f"^sleep {marker}"], capture_output=True).returncode == 1  # agent is gone
+    store = Store(repo)
+    done = store.load()
+    assert done.status == "failed" and "interrupted" in done.error
+    assert not Path(done.worktree_root).exists()

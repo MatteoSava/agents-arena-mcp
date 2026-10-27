@@ -56,8 +56,11 @@ class Contestant(BaseModel):
     @field_validator("name")
     @classmethod
     def _slug(cls, value: str) -> str:
-        if not NAME.fullmatch(value) or ".." in value:
-            raise ValueError("name must be lowercase letters, digits, '.', '_' or '-' (max 40), without '..'")
+        if not NAME.fullmatch(value) or ".." in value or value.endswith((".", ".lock")):
+            raise ValueError(
+                "name must be lowercase letters, digits, '.', '_' or '-' (max 40), without '..' "
+                "and not ending in '.' or '.lock' (names become git refs)"
+            )
         return value
 
     @model_validator(mode="after")
@@ -95,7 +98,6 @@ class Spec(BaseModel):
     setup: str = ""  # shell command run in the baseline and in each run's worktree before the agent, e.g. "npm ci"
     contestants: list[Contestant] = Field(min_length=1, max_length=6)
     judge: JudgeSpec = Field(default_factory=JudgeSpec)
-    ship: bool = False
     base_ref: str = "HEAD"
     max_parallel: int = Field(4, ge=1, le=16)
     run_timeout_sec: int = 1800
@@ -263,6 +265,7 @@ class Arena(BaseModel):
     runs: dict[str, Run] = Field(default_factory=dict)
     baseline: CheckReport | None = None
     finals: list[Match] = Field(default_factory=list)
+    new_refs: list[str] = Field(default_factory=list)  # branches/tags/stashes that appeared during the runs
     scorecard: Scorecard | None = None
     error: str = ""
     created_at: str

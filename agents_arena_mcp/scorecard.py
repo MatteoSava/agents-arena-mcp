@@ -37,6 +37,9 @@ def build(arena: Arena) -> Scorecard:
     spec = arena.spec
     stats = [stats_for(arena, c.name) for c in spec.contestants]
     notes = [f"{r.id}: {r.error}" for r in arena.runs.values() if r.error]
+    if arena.new_refs:
+        notes.append("git refs appeared during the runs (agents share .git; review and delete them): "
+                     + ", ".join(arena.new_refs))  # fmt: skip
     if any(s.median_cost_usd is None and s.eligible for s in stats):
         notes.append("cost is only shown for harnesses that report it (codex reports tokens, not dollars)")
     alive = [s for s in stats if s.eligible]
