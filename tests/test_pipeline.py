@@ -110,3 +110,13 @@ def test_failing_setup_on_base_fails_the_arena(repo, fakes):
         pipeline.execute(store, arena.id, progress=lambda m: None)
     failed = store.load(arena.id)
     assert failed.status == "failed" and "setup" in failed.error
+
+
+def test_agent_failure_records_stderr(repo, fakes):
+    bad = {"name": "b", "harness": "command", "argv": ["sh", "-c", "echo login required >&2; exit 3"]}
+    store = Store(repo)
+    arena = pipeline.create(store, spec(fakes, repeats=1, contestants=[command_contestant(fakes, "a"), bad]))
+    pipeline.execute(store, arena.id, progress=lambda m: None)
+    done = store.load(arena.id)
+    assert done.runs["b-1"].error.startswith("agent failed") and "login required" in done.runs["b-1"].error
+    assert "login required" in " ".join(done.scorecard.notes)

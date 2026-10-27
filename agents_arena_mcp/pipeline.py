@@ -94,6 +94,8 @@ def run_one(store: Store, arena_id: str, run_id: str) -> None:
         with store.mutate(arena_id) as a:
             r = a.runs[run_id]
             r.exit_status, r.metrics = out.status, metrics
+            if out.status != "passed":
+                r.error = f"agent {out.status}: {proc.tail(out.stderr or out.stdout, 600)}"
             r.snapshot = workspace.snapshot(store, a, r, ws)
             snap_commit = r.snapshot.commit
         report = (
