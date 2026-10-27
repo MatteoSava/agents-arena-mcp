@@ -13,6 +13,8 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
+from pydantic import ValidationError
+
 from agents_arena_mcp.errors import ArenaError
 from agents_arena_mcp.models import Arena
 
@@ -88,7 +90,7 @@ class Store:
     def current_id(self) -> str:
         pointer = self.root / "current"
         if not pointer.exists():
-            raise ArenaError("No arena yet. Start one with arena_open.")
+            raise ArenaError("No arena yet. Plan one with arena_plan, then arena_start.")
         return pointer.read_text(encoding="utf-8").strip()
 
     def set_current(self, arena_id: str) -> None:
@@ -99,7 +101,12 @@ class Store:
         path = self.arena_dir(arena_id) / "arena.json"
         if not path.exists():
             raise ArenaError(f"Arena not found: {arena_id}")
-        return Arena.model_validate_json(path.read_text(encoding="utf-8"))
+        try:
+            return Arena.model_validate_json(path.read_text(encoding="utf-8"))
+        except ValidationError as exc:
+            raise ArenaError(
+                f"Arena {arena_id} was created by an older Agents Arena version and can't be read"
+            ) from exc
 
     def save(self, arena: Arena) -> None:
         write_atomic(self.arena_dir(arena.id) / "arena.json", arena.model_dump_json(indent=2))
@@ -115,5 +122,11 @@ class Store:
     def event(self, arena_id: str, event: str, **data: Any) -> None:
         append_jsonl(self.arena_dir(arena_id) / "events.jsonl", {"at": utc_now(), "event": event, **data})
 
-    def ledger(self, record: dict[str, Any]) -> None:
-        append_jsonl(self.root / "ledger.jsonl", {"at": utc_now(), **record})
+    def history(self, record: dict[str, Any]) -> None:
+        append_jsonl(self.root / "history.jsonl", {"at": utc_now(), **record})
+
+    def read_history(self) -> list[dict[str, Any]]:
+        path = self.root / "history.jsonl"
+        if not path.exists():
+            return []
+        return [json.loads(line) for line in path.read_text(encoding="utf-8").splitlines() if line.strip()]

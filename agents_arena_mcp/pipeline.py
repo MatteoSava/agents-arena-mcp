@@ -3,13 +3,14 @@
 from __future__ import annotations
 
 import re
+import shutil
 from collections.abc import Callable
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import UTC, datetime
 from pathlib import Path
 from string import Template
 
-from agents_arena_mcp import checks, git, harness, proc, workspace
+from agents_arena_mcp import checks, git, harness, judge, proc, scorecard, workspace
 from agents_arena_mcp.config_data import data_text
 from agents_arena_mcp.errors import ArenaError
 from agents_arena_mcp.models import Arena, Contestant, Run, Spec
@@ -133,6 +134,45 @@ def execute(store: Store, arena_id: str, progress: Progress) -> None:
 
 
 def finish(store: Store, arena_id: str, progress: Progress) -> None:
-    """Judging and scorecard (Chunk 3). For now just mark the arena done."""
+    arena = store.load(arena_id)
+    if arena.spec.judged:
+        judge.score_runs(store, arena_id, progress)
+        if len(arena.spec.contestants) > 1:
+            judge.run_finals(store, arena_id, progress)
     with store.mutate(arena_id) as a:
+        a.scorecard = scorecard.build(a)
         a.status, a.finished_at = "done", utc_now()
+    done = store.load(arena_id)
+    out = store.arena_dir(arena_id)
+    write_atomic(out / "result.json", done.model_dump_json(indent=2, by_alias=True))
+    write_atomic(out / "report.md", scorecard.render_markdown(done))
+    store.history(scorecard.history_record(done))
+    progress(done.scorecard.verdict if done.scorecard else "done")
+
+
+def promote(store: Store, arena_id: str | None, mode: str) -> dict:
+    """patch: write winner.diff; branch: commit it on the base without checkout; apply: git apply --3way."""
+    if mode not in ("patch", "branch", "apply"):
+        raise ArenaError(f"promote mode must be patch, branch or apply, not {mode!r}")
+    arena = store.load(arena_id)
+    card = arena.scorecard
+    if card is None or card.winner_run is None:
+        raise ArenaError(f"Nothing to promote: {card.verdict if card else 'arena has not finished'}")
+    run = arena.runs[card.winner_run]
+    assert run.snapshot is not None
+    patch = store.arena_dir(arena.id) / "winner.diff"
+    shutil.copyfile(run.snapshot.patch_path, patch)
+    root, result = (
+        Path(arena.repo_root),
+        {"arena_id": arena.id, "winner": card.winner, "run": run.id, "patch": str(patch)},
+    )
+    if mode == "branch":
+        branch = f"arena/{arena.id}-{card.winner}"
+        if git.git(root, "rev-parse", "--verify", "--quiet", f"refs/heads/{branch}", check=False):
+            raise ArenaError(f"Branch {branch} already exists; delete it or promote with mode='patch'")
+        git.create_branch(root, branch, git.commit_patch(root, arena.base_commit, patch, f"arena {arena.id}: {run.id}"))
+        result["branch"] = branch
+    elif mode == "apply":
+        git.apply_3way(root, patch)
+    store.event(arena.id, "promote", mode=mode, run=run.id)
+    return result
