@@ -87,3 +87,23 @@ def test_agent_crash_is_recorded_not_fatal(repo, fakes):
     pipeline.execute(store, arena.id, progress=lambda m: None)
     b = store.load(arena.id).runs["b-1"]
     assert b.state == "done" and b.exit_status == "failed" and any(g.kind == "empty" for g in b.gates)
+
+
+def test_setup_runs_before_agent_and_is_not_counted(repo, fakes):
+    store = Store(repo)
+    arena = pipeline.create(store, spec(fakes, repeats=1, setup="echo built > built.txt"))
+    pipeline.execute(store, arena.id, progress=lambda m: None)
+    runs = store.load(arena.id).runs
+    assert runs and all(r.state == "done" for r in runs.values())
+    for run in runs.values():
+        assert [f.path for f in run.snapshot.files] == ["app.py"]
+
+
+def test_failing_setup_on_base_fails_the_arena(repo, fakes):
+    store = Store(repo)
+    s = spec(fakes, repeats=1, setup="false", checks=[{"name": "ok", "cmd": "true"}])
+    arena = pipeline.create(store, s)
+    with pytest.raises(ArenaError):
+        pipeline.execute(store, arena.id, progress=lambda m: None)
+    failed = store.load(arena.id)
+    assert failed.status == "failed" and "setup" in failed.error

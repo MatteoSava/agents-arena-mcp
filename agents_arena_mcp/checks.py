@@ -11,6 +11,7 @@ import tempfile
 from pathlib import Path
 
 from agents_arena_mcp import git, proc
+from agents_arena_mcp.errors import ArenaError
 from agents_arena_mcp.models import Arena, Check, CheckReport, CheckResult, Gate, Run
 
 PROTECTED = (".github/workflows/", ".gitlab-ci.yml", ".agents-arena/")
@@ -45,6 +46,12 @@ def baseline(arena: Arena) -> CheckReport:
         path = Path(tmp) / "base"
         git.worktree_add(root, path, arena.base_commit)
         try:
+            if arena.spec.setup:
+                out = proc.shell(arena.spec.setup, path, arena.spec.check_timeout_sec, owner=arena.id)
+                if not out.ok:
+                    raise ArenaError(
+                        f"setup failed on the base commit ({out.status}): {proc.tail(out.stdout + out.stderr, 800)}"
+                    )
             return run_checks(arena.spec.checks, path, arena.base_commit, arena.spec.check_timeout_sec, arena.id)
         finally:
             git.worktree_remove(root, path)

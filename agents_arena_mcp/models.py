@@ -84,6 +84,7 @@ class Spec(BaseModel):
     objective: str = "quality"  # quality | elegance | speed | tokens | cost | any custom rubric text
     repeats: int = Field(1, ge=1, le=20)
     checks: list[Check] = Field(default_factory=list)
+    setup: str = ""  # shell command run in the baseline and in each run's worktree before the agent, e.g. "npm ci"
     contestants: list[Contestant] = Field(min_length=1, max_length=6)
     judge: JudgeSpec = Field(default_factory=JudgeSpec)
     ship: bool = False

@@ -76,7 +76,11 @@ def run_one(store: Store, arena_id: str, run_id: str) -> None:
         home = workspace.home_dir(arena, run) if c.baseline == "clean" else None
         env = adapter.clean_env(home) if home else None
         workspace.apply_overlays(ws, home, c.overlays)
-        base = workspace.overlay_base(arena, run, ws, any(o.scope == "repo" for o in c.overlays))
+        if spec.setup:
+            out = proc.run(["sh", "-c", spec.setup], ws, spec.check_timeout_sec, owner=arena_id, env=env)
+            if not out.ok:
+                raise ArenaError(f"setup failed ({out.status}): {proc.tail(out.stdout + out.stderr, 800)}")
+        base = workspace.overlay_base(arena, run, ws, any(o.scope == "repo" for o in c.overlays) or bool(spec.setup))
         with store.mutate(arena_id) as a:
             r = a.runs[run_id]
             r.state, r.workspace, r.base_commit, r.run_dir = "running", str(ws), base, str(run_dir)
@@ -110,7 +114,7 @@ def run_one(store: Store, arena_id: str, run_id: str) -> None:
 def execute(store: Store, arena_id: str, progress: Progress) -> None:
     try:
         arena = store.load(arena_id)
-        if arena.spec.checks:
+        if arena.spec.checks or arena.spec.setup:
             progress("running baseline checks on the base commit")
             report = checks.baseline(arena)
             with store.mutate(arena_id) as a:
