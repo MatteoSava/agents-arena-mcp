@@ -5,6 +5,7 @@ from __future__ import annotations
 import os
 import secrets
 import threading
+import time
 import traceback
 from collections.abc import Callable
 from datetime import UTC, datetime
@@ -13,8 +14,11 @@ from typing import Any
 
 from fastmcp import Context
 
+from agents_arena_mcp import proc
 from agents_arena_mcp.models import Job
 from agents_arena_mcp.store import Store, utc_now, write_atomic
+
+_threads: list[threading.Thread] = []
 
 
 def new_run_id(prefix: str) -> str:
@@ -69,8 +73,24 @@ def start(store: Store, arena_id: str, op: str, work: Callable[[Callable[[str], 
         except Exception:
             pass  # recorded on the job for arena_status; nothing else would see it
 
-    threading.Thread(target=body, name=f"arena-{job.id}", daemon=True).start()
+    thread = threading.Thread(target=body, name=f"arena-{job.id}", daemon=True)
+    _threads[:] = [t for t in _threads if t.is_alive()] + [thread]
+    thread.start()
     return job
+
+
+def stop_all(timeout: float = 30) -> None:
+    """Cancel every arena running in this process and give its job time to record the failure and clean up."""
+    proc.cancel_all()
+    deadline = time.monotonic() + timeout
+    for thread in list(_threads):
+        thread.join(max(0.0, deadline - time.monotonic()))
+
+
+def on_sigterm(signum: int, frame: object) -> None:
+    """SIGTERM handler for the server and CLI: stop arenas cleanly instead of dying mid-run."""
+    stop_all()
+    raise SystemExit(128 + signum)
 
 
 def list_jobs(store: Store, arena_id: str) -> list[Job]:

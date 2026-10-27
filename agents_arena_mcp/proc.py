@@ -10,9 +10,14 @@ import time
 from dataclasses import dataclass
 from pathlib import Path
 
+from agents_arena_mcp.errors import Cancelled
+
+INTERRUPTED = "interrupted; running agents and judges were killed"
+
 # Live process groups, keyed by an owner tag (an arena id), so cancel() can kill them.
 _live: dict[int, str] = {}
 _cancelled: set[str] = set()
+_active: set[str] = set()  # arenas executing in this process, for cancel_all()
 _live_lock = threading.Lock()
 
 
@@ -93,6 +98,32 @@ def run(
 
 def shell(command: str, cwd: Path, timeout: int, *, owner: str = "") -> ProcResult:
     return run(["sh", "-c", command], cwd, timeout, owner=owner)
+
+
+def track(owner: str) -> None:
+    with _live_lock:
+        _active.add(owner)
+
+
+def untrack(owner: str) -> None:
+    with _live_lock:
+        _active.discard(owner)
+
+
+def cancelled(owner: str) -> bool:
+    return owner in _cancelled
+
+
+def raise_if_cancelled(owner: str) -> None:
+    if owner in _cancelled:
+        raise Cancelled(INTERRUPTED)
+
+
+def cancel_all() -> None:
+    with _live_lock:
+        owners = list(_active)
+    for owner in owners:
+        cancel(owner)
 
 
 def cancel(owner: str) -> int:

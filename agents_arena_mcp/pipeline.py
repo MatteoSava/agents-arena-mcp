@@ -120,6 +120,7 @@ def run_one(store: Store, arena_id: str, run_id: str) -> None:
 def execute(store: Store, arena_id: str, progress: Progress) -> None:
     arena = store.load(arena_id)
     root = Path(arena.repo_root)
+    proc.track(arena_id)
     try:
         if arena.spec.checks or arena.spec.setup:
             progress("running baseline checks on the base commit")
@@ -133,20 +134,22 @@ def execute(store: Store, arena_id: str, progress: Progress) -> None:
                 for done, future in enumerate(as_completed(futures), 1):
                     future.result()
                     progress(f"{done}/{total} runs finished")
-            except KeyboardInterrupt:
-                proc.cancel(arena_id)  # agents run in their own process groups; Ctrl-C alone doesn't reach them
+            except BaseException:  # Ctrl-C or SIGTERM: agents run in their own process groups, so kill them here
+                proc.cancel(arena_id)  # or the pool would wait for them to finish
                 raise
+        proc.raise_if_cancelled(arena_id)
         with store.mutate(arena_id) as a:
             a.new_refs = sorted(git.list_refs(root, *USER_REFS) - refs_before)
         finish(store, arena_id, progress)
-    except KeyboardInterrupt:
-        proc.cancel(arena_id)
-        _fail(store, arena_id, "interrupted (Ctrl-C); running agents and judges were killed")
-        raise
     except Exception as exc:
-        _fail(store, arena_id, f"{type(exc).__name__}: {exc}")
+        _fail(store, arena_id, proc.INTERRUPTED if proc.cancelled(arena_id) else f"{type(exc).__name__}: {exc}")
+        raise
+    except BaseException:  # Ctrl-C or SIGTERM during baseline, runs or judging
+        proc.cancel(arena_id)
+        _fail(store, arena_id, proc.INTERRUPTED)
         raise
     finally:
+        proc.untrack(arena_id)
         workspace.remove_root(arena)
 
 
@@ -161,6 +164,7 @@ def finish(store: Store, arena_id: str, progress: Progress) -> None:
         judge.score_runs(store, arena_id, progress)
         if len(arena.spec.contestants) > 1:
             judge.run_finals(store, arena_id, progress)
+    proc.raise_if_cancelled(arena_id)  # killed judges look like ties; don't publish that scorecard
     with store.mutate(arena_id) as a:
         a.scorecard = scorecard.build(a)
         a.status, a.finished_at = "done", utc_now()

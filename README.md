@@ -46,10 +46,10 @@ Agents Arena is an **experiment bench for coding agents**. It runs as an MCP ser
 
 ```bash
 # 1. Give your agent the arena (Claude Code shown; any MCP client works)
-claude mcp add agents-arena -- uvx --from git+https://github.com/MatteoSava/agents-arena-mcp@v0.3.0 agents-arena-mcp
+claude mcp add agents-arena -- uvx --from git+https://github.com/MatteoSava/agents-arena-mcp@v0.3.1 agents-arena-mcp
 
 # 2. Optional: teach your agents the workflow
-uv tool install git+https://github.com/MatteoSava/agents-arena-mcp@v0.3.0
+uv tool install git+https://github.com/MatteoSava/agents-arena-mcp@v0.3.1
 cd your-repo && agents-arena init --skills claude,codex
 ```
 
@@ -218,7 +218,7 @@ The CLI always waits for a run to finish, because a background run would die whe
 - A `real` contestant has your usual config and credentials.
 - Check and setup commands come only from the spec, and they run in your environment. Only the agent gets the clean home. Judges run in a temporary directory outside your repo.
 - Agents share the repo's `.git`. If one creates a branch, tag or stash, the scorecard lists it so you can delete it.
-- Ctrl-C kills the running agents and judges and marks the arena failed. If the process dies some other way, `arena_status` reports the arena as failed.
+- Ctrl-C, SIGTERM, or your MCP client quitting kills the running agents and judges, marks the arena failed, and removes its worktrees. If the process is killed outright, `arena_status` reports the arena as failed.
 - macOS and Linux are supported. Windows, network filesystems, git submodules and Git LFS are not.
 - Verified with claude 2.1.291, codex-cli 0.164.0 and opencode 2.1.4. CLI flags and output formats are what change between versions. Each harness's isolation recipe is in [docs/v0.3-isolation-spike.md](docs/v0.3-isolation-spike.md).
 

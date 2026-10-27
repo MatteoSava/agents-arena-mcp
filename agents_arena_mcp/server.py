@@ -2,9 +2,12 @@
 
 from __future__ import annotations
 
+import os
+import signal
+
 from fastmcp import FastMCP
 
-from agents_arena_mcp import __version__
+from agents_arena_mcp import __version__, jobs
 from agents_arena_mcp.arena import OPS
 from agents_arena_mcp.config_data import data_text
 
@@ -27,8 +30,16 @@ def make_mcp() -> FastMCP:
     return mcp
 
 
+def _on_sigterm(signum: int, frame: object) -> None:
+    jobs.stop_all()  # background arenas record the failure and remove their worktrees
+    # A SystemExit raised here would be swallowed by the event loop, so exit the process directly.
+    os._exit(128 + signum)
+
+
 def main() -> None:
+    signal.signal(signal.SIGTERM, _on_sigterm)
     make_mcp().run()
+    jobs.stop_all()  # stdin closed (the client quit): stop background arenas before their threads die
 
 
 if __name__ == "__main__":

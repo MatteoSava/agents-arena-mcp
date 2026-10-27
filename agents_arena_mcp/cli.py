@@ -5,12 +5,13 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import signal
 import sys
 import tomllib
 from pathlib import Path
 from typing import Any
 
-from agents_arena_mcp import __version__
+from agents_arena_mcp import __version__, jobs
 from agents_arena_mcp.arena import arena_history, arena_plan, arena_result, arena_start, arena_status, store
 from agents_arena_mcp.errors import ArenaError
 
@@ -67,6 +68,7 @@ def _load_spec(path: str) -> dict[str, Any]:
 
 def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
+    signal.signal(signal.SIGTERM, jobs.on_sigterm)
     if args.repo:
         os.environ["AGENTS_ARENA_ROOT"] = str(Path(args.repo).resolve())
     kwargs = {k: v for k, v in vars(args).items() if k not in {"cmd", "repo"}}

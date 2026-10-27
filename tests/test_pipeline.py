@@ -209,3 +209,51 @@ def test_refs_created_during_the_arena_are_reported(repo, fakes):
     pipeline.execute(store, arena.id, progress=lambda m: None)
     notes = store.load(arena.id).scorecard.notes
     assert any("refs/heads/sneaky" in n for n in notes), notes
+
+
+def test_stopping_cancels_background_arenas_and_cleans_up(repo, fakes, monkeypatch):
+    from agents_arena_mcp import arena as arena_ops
+    from agents_arena_mcp import jobs
+
+    monkeypatch.setenv("FAKE_PLAN", json.dumps({"a": {"sleep": 30}}))
+    started = arena_ops.arena_start(
+        spec(fakes, repeats=1, contestants=[command_contestant(fakes, "a")]).model_dump(by_alias=True)
+    )
+    store = Store(repo)
+    for _ in range(100):  # wait until the agent is running
+        if store.load(started["arena_id"]).runs["a-1"].state == "running":
+            break
+        time.sleep(0.05)
+    t0 = time.monotonic()
+    jobs.stop_all(timeout=20)
+    assert time.monotonic() - t0 < 15
+    done = store.load(started["arena_id"])
+    assert done.status == "failed" and "interrupted" in done.error
+    assert not Path(done.worktree_root).exists()
+
+
+def test_sigterm_on_the_cli_kills_agents_and_fails_the_arena(repo, tmp_path):
+    import os
+    import secrets
+    import signal
+    import subprocess
+
+    marker = f"61.{secrets.randbelow(10**6):06d}"  # unique, so pgrep only sees this test's agent
+    spec_file = tmp_path / "spec.json"
+    spec_file.write_text(json.dumps({"task": "t", "judge": {"harness": "none"}, "contestants": [
+        {"name": "s", "harness": "command", "argv": ["sh", "-c", f"sleep {marker}"]}]}))  # fmt: skip
+    cli = subprocess.Popen(
+        [sys.executable, "-c", "import sys; from agents_arena_mcp.cli import main; sys.exit(main())",
+         "start", str(spec_file)], env=os.environ.copy(), stdout=subprocess.PIPE, stderr=subprocess.PIPE)  # fmt: skip
+    for _ in range(100):
+        if subprocess.run(["pgrep", "-f", f"^sleep {marker}"], capture_output=True).returncode == 0:
+            break
+        time.sleep(0.1)
+    cli.send_signal(signal.SIGTERM)
+    code = cli.wait(timeout=20)
+    assert code == 128 + signal.SIGTERM, cli.stderr.read().decode()[-1500:]
+    assert subprocess.run(["pgrep", "-f", f"^sleep {marker}"], capture_output=True).returncode == 1  # agent is gone
+    store = Store(repo)
+    done = store.load()
+    assert done.status == "failed" and "interrupted" in done.error
+    assert not Path(done.worktree_root).exists()

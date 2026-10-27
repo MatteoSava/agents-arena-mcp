@@ -114,3 +114,23 @@ def test_cli_ctrl_c_exits_130_without_a_traceback(monkeypatch, capsys):
     monkeypatch.setitem(cli.COMMANDS, "status", interrupted)
     assert cli.main(["status"]) == 130
     assert "interrupted" in json.loads(capsys.readouterr().err)["error"]
+
+
+def test_server_exits_on_sigterm(repo):
+    import os
+    import signal
+    import subprocess
+    import sys
+
+    server = subprocess.Popen([sys.executable, "-m", "agents_arena_mcp.server"], stdin=subprocess.PIPE,
+                              stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, env=os.environ.copy())  # fmt: skip
+    init = {"jsonrpc": "2.0", "id": 1, "method": "initialize",
+            "params": {"protocolVersion": "2025-06-18", "capabilities": {}, "clientInfo": {"name": "t", "version": "1"}}}  # fmt: skip
+    server.stdin.write((json.dumps(init) + "\n").encode())
+    server.stdin.flush()
+    assert b'"id":1' in server.stdout.readline()  # serving
+    server.send_signal(signal.SIGTERM)
+    try:
+        assert server.wait(timeout=10) == 128 + signal.SIGTERM
+    finally:
+        server.kill()

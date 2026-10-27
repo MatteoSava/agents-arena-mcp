@@ -71,7 +71,7 @@ The recipe comes from [the v0.3 spike](v0.3-isolation-spike.md), which tested cl
 - Judge calls run in a temporary directory outside the repo.
 - `setup` and checks run in the user's environment, in the baseline and in every run, so a check can only differ because of the contestant's change. Only the agent gets the clean home.
 - Agents share the repo's `.git`, so they can create branches, tags or stashes. These can't be blocked cheaply. Refs that appear under `refs/heads`, `refs/tags` or `refs/stash` during the runs are listed in the scorecard notes (`Arena.new_refs`).
-- Every arena run, foreground or background, has a job record holding its pid. `arena_status` marks an arena failed when its job's process is gone. Ctrl-C calls `proc.cancel(arena_id)`, which kills the arena's agent and judge process groups and refuses new ones. They run in their own sessions, so the terminal's SIGINT doesn't reach them.
+- Every arena run, foreground or background, has a job record holding its pid. `arena_status` marks an arena failed when its job's process is gone. Ctrl-C calls `proc.cancel(arena_id)`, which kills the arena's agent and judge process groups and refuses new ones. They run in their own sessions, so the terminal's SIGINT doesn't reach them. SIGTERM, and the server's stdin closing, call `jobs.stop_all()`: it cancels every arena running in the process and waits for their jobs to mark them failed and remove their worktrees. After that the process exits with 143.
 
 The spike also records where auth does not survive isolation, and that metrics come from different places per harness (claude's result JSON, codex's `turn.completed`, opencode's `session export`).
 

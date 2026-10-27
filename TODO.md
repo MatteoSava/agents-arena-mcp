@@ -51,7 +51,8 @@ State: v0.3 (experiment bench) is implemented and verified on real harnesses. Th
 - [DONE] Setup and checks always run in the user's env; only the agent is isolated
 - [DONE] eval-judge runs judge preflight first
 - [DONE] Ctrl-C kills agents and judges, marks the arena failed, and the CLI exits 130 (verified with a real Ctrl-C in tmux)
-- [BUG] SIGTERM (e.g. the MCP client quitting mid-arena, or `kill`) skips all cleanup: worktrees stay behind and agents in their own process groups may keep running. Needs a SIGTERM handler in the server and CLI that cancels live arenas and marks them failed
+- [DONE] SIGTERM and the client quitting (stdin closed) cancel live arenas, mark them failed and remove worktrees. The server and CLI exit 143. Verified with a real server over stdio: EOF and SIGTERM both left no agent, no worktree, and a failed arena
+- [NOTE] SIGKILL can't be handled. The worktrees stay, and `arena_status` reports the arena failed because its job's pid is gone
 - [DONE] Refs that agents create in the shared .git are listed in the scorecard notes
 - [DEFERRED] Blocking agent-created refs outright needs a separate clone per run (slower, more disk)
 

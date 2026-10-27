@@ -4,6 +4,7 @@
 
 ### Fixed
 - Ctrl-C during `agents-arena start` now kills the running agents and judges and marks the arena failed. Before, the agents kept running in their own process groups and the arena stayed "running". The CLI exits with code 130 instead of printing a traceback.
+- SIGTERM, and the MCP client quitting (stdin closed), now stop running arenas cleanly. Agents and judges are killed, the arena is marked failed, and its worktrees are removed. The server and CLI exit with 143 on SIGTERM. Before, the worktrees stayed behind and the agents could keep running.
 - Foreground runs (`wait=true`, the CLI) are tracked as jobs, so an arena whose process died is reported as failed.
 - `.agents-arena/.gitignore` is now `*`. The v0.2 file un-ignored itself, so the state dir showed in `git status`. Existing files are upgraded on the next run.
 - The repo's `.mcp.json` server (`python -m agents_arena_mcp.server`) exited at once.
