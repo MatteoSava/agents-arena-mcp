@@ -60,3 +60,14 @@ def test_run_checks_records_missing_tool_and_timeout(tmp_path):
         owner="t",
     )
     assert [r.status for r in report.results] == ["error", "timeout"]
+
+
+def test_timeout_disqualifies_and_failed_needs_human(tmp_path):
+    files = [FileChange(path="app.py", status="M")]
+    timed_out = run_with(files, tmp_path=tmp_path)
+    timed_out.exit_status = "timeout"
+    timed_out.gates = checks.gates(timed_out, None)
+    assert ("agent_timeout", "disqualify") in kinds(timed_out.gates) and not timed_out.eligible
+    failed = run_with(files, tmp_path=tmp_path)
+    failed.exit_status = "failed"
+    assert ("agent_failed", "needs_human") in kinds(checks.gates(failed, None))

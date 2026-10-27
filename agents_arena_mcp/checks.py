@@ -62,6 +62,10 @@ def gates(run: Run, base: CheckReport | None) -> list[Gate]:
     if snap is None or not snap.files:
         return [Gate(kind="empty", severity="disqualify", detail="no changes")]
     found: list[Gate] = []
+    if run.exit_status == "timeout":
+        found.append(Gate(kind="agent_timeout", severity="disqualify", detail="agent hit the run timeout"))
+    elif run.exit_status in ("failed", "error"):
+        found.append(Gate(kind="agent_failed", severity="needs_human", detail=run.exit_status))
     for f in snap.files:
         if f.status == "D" and TEST_PATH.search(f.path):
             found.append(Gate(kind="test_deleted", severity="disqualify", detail=f.path))

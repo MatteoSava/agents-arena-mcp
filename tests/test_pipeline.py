@@ -120,3 +120,13 @@ def test_agent_failure_records_stderr(repo, fakes):
     done = store.load(arena.id)
     assert done.runs["b-1"].error.startswith("agent failed") and "login required" in done.runs["b-1"].error
     assert "login required" in " ".join(done.scorecard.notes)
+
+
+def test_timed_out_agent_cannot_win(repo, fakes):
+    slow = {"name": "a", "harness": "command", "argv": ["sh", "-c", "echo x > f.txt; sleep 5"]}
+    store = Store(repo)
+    arena = pipeline.create(store, spec(fakes, repeats=1, run_timeout_sec=1, contestants=[slow]))
+    pipeline.execute(store, arena.id, progress=lambda m: None)
+    run = store.load(arena.id).runs["a-1"]
+    assert run.exit_status == "timeout" and not run.eligible
+    assert any(g.kind == "agent_timeout" for g in run.gates)
