@@ -220,3 +220,16 @@ def test_same_family_judge_is_flagged(repo: Path, fakes):
     decision, _ = judged(repo)
 
     assert any("judge family 'shared' also generated x, y" in r for r in decision.rationale)
+
+
+def test_equivalent_variants_pick_one_instead_of_asking(repo: Path, fakes):
+    # Default "marker" mode with no GOOD marker answers an explicit "tie" in both orders.
+    write_config(repo, fakes, extra="[judge]\nrunner = 'fake'")
+    opened = ops.arena_open("task", variants=["x", "y"])
+    edit(opened, "x", {"app.py": "A = 1\n"})
+    edit(opened, "y", {"app.py": "B = 1\n"})
+
+    decision, _ = judged(repo)
+
+    assert decision.status == "winner" and decision.winner == "x"
+    assert decision.tie_break == "judged equivalent in both orders"

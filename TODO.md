@@ -69,3 +69,5 @@ rebuild on a small typed core, make selection trustworthy, and add bounded check
 ## Notes
 - [NOTE] Unsupported: Windows, network filesystems / iCloud dirs (flock), git submodules, Git LFS.
 - [NOTE] `--ignore-user-config` (codex judge) keeps auth but drops provider/model config; override the judge argv if needed.
+- [BLOCKED] Real codex verification: local codex-cli 0.133.0 fails to decode the server's model list, and its built-in default models are rejected for ChatGPT accounts. Update codex or set `[judge] model` / runner model, then rerun the manual arena + eval-judge with codex.
+- [NOTE] Even with `--ignore-user-config`, codex 0.133 still started user MCP servers (rmcp errors seen). Judge isolation from MCP servers is not guaranteed for codex; claude judge uses `--setting-sources "" --tools ""`.

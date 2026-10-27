@@ -61,6 +61,15 @@ def pair_winner(matches: list[Match]) -> str | None:
     return None
 
 
+def judged_equivalent(matches: list[Match]) -> bool:
+    """An explicit, usable "tie" in every order: the judge saw no meaningful difference (unlike a split)."""
+    return len(matches) >= 2 and all(m.verdict.winner == "tie" and m.verdict.confidence > 0 for m in matches)
+
+
+def _all_equivalent(arena: Arena, top: list[Variant]) -> bool:
+    return all(judged_equivalent(pair_matches(arena, a, b)) for a, b in combinations(top, 2))
+
+
 def decide(arena: Arena, names: list[str], judged: bool, notes: list[str]) -> Decision:
     rationale = list(notes)
     if not names:
@@ -69,9 +78,11 @@ def decide(arena: Arena, names: list[str], judged: bool, notes: list[str]) -> De
     scores = dict.fromkeys(names, 0)
     if judged:
         for a, b in combinations(names, 2):
-            winner = pair_winner(pair_matches(arena, variants[a], variants[b]))
+            matches = pair_matches(arena, variants[a], variants[b])
+            winner = pair_winner(matches)
             if winner is None:
-                rationale.append(f"{a} vs {b}: tie (verdicts split or tied across orders)")
+                kind = "judged equivalent" if judged_equivalent(matches) else "split or unclear verdicts"
+                rationale.append(f"{a} vs {b}: tie ({kind})")
                 continue
             loser = b if winner == a else a
             scores[winner] += 1
@@ -86,6 +97,9 @@ def decide(arena: Arena, names: list[str], judged: bool, notes: list[str]) -> De
     else:
         first, second = (top + [top[0]])[:2]
         key_a, key_b = deterministic_key(variants[first]), deterministic_key(variants[second])
+        if len(top) > 1 and key_a == key_b and judged and _all_equivalent(arena, [variants[n] for n in top]):
+            decision.winner, decision.tie_break = first, "judged equivalent in both orders"
+            return decision
         if len(top) > 1 and key_a == key_b:
             decision.status = "needs_human"
             decision.rationale.append(f"tied between {', '.join(top)} and no deterministic tie-break separates them")
