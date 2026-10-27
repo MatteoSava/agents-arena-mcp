@@ -121,3 +121,13 @@ def create_branch(root: Path, name: str, commit: str) -> None:
 
 def apply_3way(root: Path, patch_path: Path) -> None:
     git(root, "apply", "--3way", str(patch_path))
+
+
+def commit_patch(root: Path, base: str, patch_path: Path, message: str) -> str:
+    """Commit `patch` on top of `base` using a temporary index: no checkout, the user's tree is untouched."""
+    with tempfile.TemporaryDirectory() as tmp:
+        env = {"GIT_INDEX_FILE": str(Path(tmp) / "index"), **IDENTITY}
+        git(root, "read-tree", base, env=env)
+        git(root, "apply", "--cached", "--binary", str(patch_path), env=env)
+        tree = text(root, "write-tree", env=env)
+    return text(root, "commit-tree", tree, "-p", base, "-m", message, env=IDENTITY)
