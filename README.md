@@ -70,17 +70,15 @@ Agent:  → arena_result(promote="branch")  ⇒  arena/<id>-skill-v2  (your chec
 ## How it works
 
 ```mermaid
-flowchart LR
-    P[arena_plan<br/><sub>interview or autopilot</sub>] --> S[arena_start]
-    S --> F{preflight}
-    F -->|fails fast| X[clear error]
-    F --> B[baseline checks<br/><sub>on the base commit</sub>]
-    B --> R1[run a·1] & R2[run a·2] & R3[run b·1] & R4[run b·2]
-    R1 & R2 & R3 & R4 --> G[gates<br/><sub>regressions · deleted tests · skip markers</sub>]
-    G --> J[blind rubric<br/><sub>score per run</sub>]
-    J --> FN[final<br/><sub>best runs, A·B and B·A</sub>]
-    FN --> C[scorecard · history · HTML]
-    C --> W[promote winner]
+flowchart TB
+    P["🧭 arena_plan · interview or autopilot"] --> F{"preflight"}
+    F -- "missing CLI / auth / overlay" --> X["fail fast, nothing spent"]
+    F --> B["baseline checks on the base commit"]
+    B --> R1["contestant A · run 1..n"] & R2["contestant B · run 1..n"] & R3["contestant C · run 1..n"]
+    R1 & R2 & R3 --> G["🛡️ gates · regressions, deleted tests, skip markers"]
+    G --> J["⚖️ blind rubric score per run"]
+    J --> FN["🥊 final · best runs, judged A·B and B·A"]
+    FN --> C["📊 scorecard · history · HTML"] --> W["🚀 promote the winner"]
 ```
 
 Each run follows the same steps:
