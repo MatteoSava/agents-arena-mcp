@@ -1,0 +1,79 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="340" viewBox="0 0 1280 340" role="img" aria-label="Agents Arena: three strategies race, one trips a regression, a blind judge picks the winner">
+  <style>
+    .grow { transform-box: fill-box; transform-origin: 0 50%; }
+    @keyframes bar0 { 0% { transform: scaleX(0) } 6% { transform: scaleX(0) } 26% { transform: scaleX(0.35) } 46% { transform: scaleX(1) } 98% { transform: scaleX(1) } 100% { transform: scaleX(0) } }
+    @keyframes dot0 { 0% { transform: translateX(-423px) } 6% { transform: translateX(-423px) } 26% { transform: translateX(-275px) } 46% { transform: translateX(0px) } 98% { transform: translateX(0px) } 100% { transform: translateX(-423px) } }
+    @keyframes res0 { 0% { opacity: 0 } 45% { opacity: 0 } 47% { opacity: 1 } 92% { opacity: 1 } 98% { opacity: 0 } 100% { opacity: 0 } }
+    @keyframes lane0 { 0% { opacity: 0 } 3% { opacity: 1 } 92% { opacity: 1 } 98% { opacity: 0 } 100% { opacity: 0 } }
+    @keyframes bar1 { 0% { transform: scaleX(0) } 6% { transform: scaleX(0) } 26% { transform: scaleX(0.6) } 52% { transform: scaleX(1) } 98% { transform: scaleX(1) } 100% { transform: scaleX(0) } }
+    @keyframes dot1 { 0% { transform: translateX(-359px) } 6% { transform: translateX(-359px) } 26% { transform: translateX(-144px) } 52% { transform: translateX(0px) } 98% { transform: translateX(0px) } 100% { transform: translateX(-359px) } }
+    @keyframes res1 { 0% { opacity: 0 } 51% { opacity: 0 } 53% { opacity: 1 } 92% { opacity: 1 } 98% { opacity: 0 } 100% { opacity: 0 } }
+    @keyframes lane1 { 0% { opacity: 0 } 3% { opacity: 1 } 92% { opacity: 1 } 98% { opacity: 0 } 100% { opacity: 0 } }
+    @keyframes bar2 { 0% { transform: scaleX(0) } 6% { transform: scaleX(0) } 20% { transform: scaleX(0.8) } 35% { transform: scaleX(1) } 98% { transform: scaleX(1) } 100% { transform: scaleX(0) } }
+    @keyframes dot2 { 0% { transform: translateX(-253px) } 6% { transform: translateX(-253px) } 20% { transform: translateX(-51px) } 35% { transform: translateX(0px) } 98% { transform: translateX(0px) } 100% { transform: translateX(-253px) } }
+    @keyframes res2 { 0% { opacity: 0 } 35% { opacity: 0 } 37% { opacity: 1 } 92% { opacity: 1 } 98% { opacity: 0 } 100% { opacity: 0 } }
+    @keyframes lane2 { 0% { opacity: 0 } 3% { opacity: 1 } 92% { opacity: 1 } 98% { opacity: 0 } 100% { opacity: 0 } }
+    @keyframes fail2 { 0% { fill: #0f9a68 } 35% { fill: #0f9a68 } 37% { fill: #c62f2f } 98% { fill: #c62f2f } 100% { fill: #0f9a68 } }
+    @keyframes win { 0% { opacity: 0 } 64% { opacity: 0 } 66% { opacity: 1 } 92% { opacity: 1 } 98% { opacity: 0 } 100% { opacity: 0 } }
+    @keyframes pulse { 0% { opacity: 0.10 } 50% { opacity: 0.22 } 100% { opacity: 0.10 } }
+    @keyframes tick0 { 0% { opacity: 0 } 3% { opacity: 0 } 4% { opacity: 1 } 15% { opacity: 1 } 16% { opacity: 0 } 100% { opacity: 0 } }
+    @keyframes tick1 { 0% { opacity: 0 } 16% { opacity: 0 } 17% { opacity: 1 } 35% { opacity: 1 } 36% { opacity: 0 } 100% { opacity: 0 } }
+    @keyframes tick2 { 0% { opacity: 0 } 36% { opacity: 0 } 37% { opacity: 1 } 51% { opacity: 1 } 52% { opacity: 0 } 100% { opacity: 0 } }
+    @keyframes tick3 { 0% { opacity: 0 } 52% { opacity: 0 } 53% { opacity: 1 } 63% { opacity: 1 } 64% { opacity: 0 } 100% { opacity: 0 } }
+    @keyframes tick4 { 0% { opacity: 0 } 64% { opacity: 0 } 65% { opacity: 1 } 92% { opacity: 1 } 98% { opacity: 0 } 100% { opacity: 0 } }
+    @media (prefers-reduced-motion: reduce) { * { animation: none !important; } }
+  </style>
+  <defs>
+    <radialGradient id="g" cx="0.15" cy="0.1" r="0.9"><stop offset="0" stop-color="#2a5bd7" stop-opacity="0.16"/><stop offset="1" stop-color="#2a5bd7" stop-opacity="0"/></radialGradient>
+    <pattern id="grid" width="32" height="32" patternUnits="userSpaceOnUse"><path d="M32 0H0V32" fill="none" stroke="#e4e2dc" stroke-width="1" opacity="0.6"/></pattern>
+  </defs>
+  <rect width="1280" height="340" rx="18" fill="#fbfbf8"/>
+  <rect width="1280" height="340" rx="18" fill="url(#grid)" opacity="0.5"/>
+  <rect width="1280" height="340" rx="18" fill="url(#g)"/>
+  <text x="64" y="84" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="15" letter-spacing="3" fill="#5b6070">AGENTS ARENA · v0.3</text>
+  <text x="64" y="160" font-family="ui-sans-serif, -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="58" font-weight="800" letter-spacing="-1.5" fill="#111318">Race your agents.</text>
+  <text x="64" y="226" font-family="ui-sans-serif, -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="58" font-weight="800" letter-spacing="-1.5" fill="#2a5bd7">Ship the winner.</text>
+  <text x="64" y="278" font-family="ui-sans-serif, -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="19" fill="#5b6070">Same task, isolated worktrees, blind judging, real numbers.</text>
+  <text x="64" y="312" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="13" fill="#a3a7b3">claude · codex · opencode  —  MCP server + CLI</text>
+  <g style="animation: win 10s infinite">
+    <rect x="596" y="78" width="644" height="56" rx="12" fill="#2a5bd7" style="animation: pulse 1.6s ease-in-out infinite" opacity="0.16"/>
+    <text x="792" y="100" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="13" font-weight="700" letter-spacing="1.5" fill="#2a5bd7">★ WINNER</text>
+  </g>
+  <line x1="1070" y1="88" x2="1070" y2="252" stroke="#a3a7b3" stroke-width="2" stroke-dasharray="4 6"/>
+  <text x="1070" y="78" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="12" text-anchor="middle" fill="#a3a7b3">checks</text>
+  <g style="animation: lane0 10s infinite">
+    <text x="610" y="100" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="15" fill="#5b6070">strategy: minimal</text>
+    <rect x="610" y="112" width="460" height="10" rx="5" fill="#e4e2dc"/>
+    <rect class="grow" x="610" y="112" width="423" height="10" rx="5" fill="#2a5bd7" style="animation: bar0 10s infinite"/>
+    <g style="animation: dot0 10s infinite">
+      <circle cx="1033" cy="117" r="9" fill="#2a5bd7" opacity="0.25"/>
+      <circle cx="1033" cy="117" r="5" fill="#2a5bd7"/>
+    </g>
+    <text x="1092" y="122" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="15" font-weight="600" fill="#111318" style="animation: res0 10s infinite">✓ 9.5</text>
+  </g>
+  <g style="animation: lane1 10s infinite">
+    <text x="610" y="162" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="15" fill="#5b6070">strategy: test-first</text>
+    <rect x="610" y="174" width="460" height="10" rx="5" fill="#e4e2dc"/>
+    <rect class="grow" x="610" y="174" width="359" height="10" rx="5" fill="#d9531e" style="animation: bar1 10s infinite"/>
+    <g style="animation: dot1 10s infinite">
+      <circle cx="969" cy="179" r="9" fill="#d9531e" opacity="0.25"/>
+      <circle cx="969" cy="179" r="5" fill="#d9531e"/>
+    </g>
+    <text x="1092" y="184" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="15" font-weight="600" fill="#111318" style="animation: res1 10s infinite">✓ 9.0</text>
+  </g>
+  <g style="animation: lane2 10s infinite">
+    <text x="610" y="224" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="15" fill="#5b6070">strategy: rewrite</text>
+    <rect x="610" y="236" width="460" height="10" rx="5" fill="#e4e2dc"/>
+    <rect class="grow" x="610" y="236" width="253" height="10" rx="5" fill="#c62f2f" style="animation: bar2 10s infinite, fail2 10s infinite"/>
+    <g style="animation: dot2 10s infinite">
+      <circle cx="863" cy="241" r="9" fill="#c62f2f" opacity="0.25" style="animation: fail2 10s infinite"/>
+      <circle cx="863" cy="241" r="5" fill="#c62f2f" style="animation: fail2 10s infinite"/>
+    </g>
+    <text x="1092" y="246" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="15" font-weight="600" fill="#c62f2f" style="animation: res2 10s infinite">✗ regression</text>
+  </g>
+  <text x="610" y="300" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#5b6070" opacity="0" style="animation: tick0 10s infinite">▸ preflight ✓  harnesses, auth, overlays</text>
+  <text x="610" y="300" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#5b6070" opacity="0" style="animation: tick1 10s infinite">▸ 9 runs · isolated worktrees · clean homes</text>
+  <text x="610" y="300" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#5b6070" opacity="0" style="animation: tick2 10s infinite">▸ gates · 1 regression caught → disqualified</text>
+  <text x="610" y="300" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#5b6070" opacity="0" style="animation: tick3 10s infinite">▸ blind rubric · final judged A·B and B·A</text>
+  <text x="610" y="300" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#111318" opacity="1" style="animation: tick4 10s infinite">▸ minimal wins both orders → arena/…-minimal</text>
+</svg>

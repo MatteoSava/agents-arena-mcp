@@ -1,0 +1,39 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1160" height="380" viewBox="0 0 1160 380" role="img" aria-label="Example scorecard from a real arena run">
+  <rect width="1160" height="380" rx="16" fill="#12151c" stroke="#232836"/>
+  <circle cx="34" cy="30" r="6" fill="#ff6b6b" opacity="0.8"/><circle cx="54" cy="30" r="6" fill="#ff8a5b" opacity="0.8"/><circle cx="74" cy="30" r="6" fill="#37d39a" opacity="0.8"/>
+  <text x="100" y="35" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="13" fill="#8a93a6">arena_result · "Add a multiply(a, b) function" · objective: quality · 3 repeats</text>
+  <rect x="48" y="62" width="540" height="40" rx="10" fill="#0b0d12" stroke="#232836"/>
+  <text x="68" y="88" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="15" fill="#e9ecf2">▸ rules-v2 highest median quality score</text>
+  <text x="300" y="128" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="12" letter-spacing="1.5" fill="#4a5263">SCORE</text><text x="505" y="128" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="12" letter-spacing="1.5" fill="#4a5263">TOKENS</text><text x="710" y="128" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="12" letter-spacing="1.5" fill="#4a5263">TIME</text><text x="915" y="128" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="12" letter-spacing="1.5" fill="#4a5263">COST</text>
+  <circle cx="64" cy="165" r="6" fill="#7c9cff"/>
+  <text x="80" y="170" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="16" font-weight="600" fill="#e9ecf2">rules-v1</text>
+  <text x="80" y="194" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="13" fill="#8a93a6">eligible 3/3</text>
+  <rect x="300" y="160" width="150" height="8" rx="4" fill="#232836"/>
+  <rect x="300" y="160" width="135" height="8" rx="4" fill="#7c9cff"/>
+  <text x="300" y="192" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="15" fill="#e9ecf2">9.0</text>
+  <rect x="505" y="160" width="150" height="8" rx="4" fill="#232836"/>
+  <rect x="505" y="160" width="126" height="8" rx="4" fill="#7c9cff"/>
+  <text x="505" y="192" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="15" fill="#e9ecf2">218k</text>
+  <rect x="710" y="160" width="150" height="8" rx="4" fill="#232836"/>
+  <rect x="710" y="160" width="143" height="8" rx="4" fill="#7c9cff"/>
+  <text x="710" y="192" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="15" fill="#e9ecf2">29s</text>
+  <rect x="915" y="160" width="150" height="8" rx="4" fill="#232836"/>
+  <rect x="915" y="160" width="128" height="8" rx="4" fill="#7c9cff"/>
+  <text x="915" y="192" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="15" fill="#e9ecf2">$0.26</text>
+  <circle cx="64" cy="249" r="6" fill="#ff8a5b"/>
+  <text x="80" y="254" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="16" font-weight="600" fill="#e9ecf2">rules-v2</text>
+  <text x="80" y="278" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="13" fill="#8a93a6">eligible 3/3</text>
+  <rect x="300" y="244" width="150" height="8" rx="4" fill="#232836"/>
+  <rect x="300" y="244" width="142" height="8" rx="4" fill="#ff8a5b"/>
+  <text x="300" y="276" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="15" fill="#e9ecf2">9.5</text>
+  <rect x="505" y="244" width="150" height="8" rx="4" fill="#232836"/>
+  <rect x="505" y="244" width="144" height="8" rx="4" fill="#ff8a5b"/>
+  <text x="505" y="276" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="15" fill="#e9ecf2">250k</text>
+  <rect x="710" y="244" width="150" height="8" rx="4" fill="#232836"/>
+  <rect x="710" y="244" width="124" height="8" rx="4" fill="#ff8a5b"/>
+  <text x="710" y="276" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="15" fill="#e9ecf2">25s</text>
+  <rect x="915" y="244" width="150" height="8" rx="4" fill="#232836"/>
+  <rect x="915" y="244" width="129" height="8" rx="4" fill="#ff8a5b"/>
+  <text x="915" y="276" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="15" fill="#e9ecf2">$0.26</text>
+  <text x="48" y="352" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="12" fill="#4a5263">real run · claude 2.1.291 contestants · codex 0.164.0 as blind judge · 2026-10-27</text>
+</svg>

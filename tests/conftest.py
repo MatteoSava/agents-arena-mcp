@@ -1,4 +1,4 @@
-"""Fixtures: a throwaway git repo wired as the arena root, plus fake agent and judge CLIs."""
+"""Fixtures: a throwaway git repo wired as the arena root, plus fake agent/judge scripts."""
 
 from __future__ import annotations
 
@@ -9,52 +9,44 @@ from pathlib import Path
 
 import pytest
 
-FAKE_RUNNER = textwrap.dedent(
+# Fake agent: writes files from FAKE_PLAN (JSON {"write": {path: text}, "delete": [path]}), echoes usage JSON.
+FAKE_AGENT = textwrap.dedent(
     """
-    import os, sys, time
-    workspace, run_dir = sys.argv[1], sys.argv[2]
-    name = os.path.basename(workspace)
-    with open(os.path.join(run_dir, "times.txt"), "w") as fh:
-        fh.write(f"{time.time()}\\n")
-        time.sleep(float(os.environ.get("FAKE_RUNNER_SLEEP", "0")))
-        fh.write(f"{time.time()}\\n")
-    open(os.path.join(workspace, "app.py"), "w").write(f"def value():\\n    return '{name}'\\n")
-    open(os.path.join(workspace, f"new_{name.replace('-', '_')}.py"), "w").write("X = 1\\n")
-    open(os.path.join(workspace, "blob.bin"), "wb").write(bytes(range(256)))
-    if os.path.exists(os.path.join(workspace, "old.txt")):
-        os.remove(os.path.join(workspace, "old.txt"))
-    print('{"type": "turn.completed", "usage": {"input_tokens": 10, "output_tokens": 5}}')
+    import json, os, sys, time
+    workspace = sys.argv[1]
+    name = os.path.basename(os.path.dirname(workspace)).rsplit("-", 1)[0]
+    plans = json.loads(os.environ.get("FAKE_PLAN", "{}"))
+    plan = plans.get(name, {"write": {"app.py": f"def value():\\n    return '{name}'\\n"}})
+    time.sleep(float(os.environ.get("FAKE_SLEEP", "0")))
+    for rel, text in plan.get("write", {}).items():
+        path = os.path.join(workspace, rel)
+        os.makedirs(os.path.dirname(path) or ".", exist_ok=True)
+        open(path, "w").write(text)
+    for rel in plan.get("delete", []):
+        os.remove(os.path.join(workspace, rel))
+    seen = {k: os.environ.get(k, "") for k in ("HOME", "CODEX_HOME", "CLAUDE_CONFIG_DIR")}
+    open(os.path.join(sys.argv[2], "env.json"), "w").write(json.dumps(seen))
+    print(json.dumps({"usage": {"input_tokens": 100, "output_tokens": 20}, "total_cost_usd": 0.01}))
     """
 )
 
-# Picks the label whose patch contains the marker GOOD; "always_a" mode ignores content (pure position bias).
+# Fake judge: rubric -> score from the GOOD marker; final -> label holding GOOD (or "A" in always_a mode).
 FAKE_JUDGE = textwrap.dedent(
     """
-    import json, os, re, sys
-    prompt = open(sys.argv[1]).read()
-    out = sys.argv[2]
+    import json, os, sys
+    prompt, out = open(sys.argv[1]).read(), sys.argv[2]
     mode = os.environ.get("FAKE_JUDGE_MODE", "marker")
-    if "- Checkout A: " in prompt:  # agentic final round: inspect the checkouts themselves
-        path_a = prompt.split("- Checkout A: ")[1].split("\\n")[0]
-        winner = "A" if os.path.exists(os.path.join(path_a, "WINNER")) else "B"
-        answer = {"winner": winner, "confidence": 0.9, "reasons": ["inspected checkouts"], "risks": []}
-    elif "Propose ONE shell command" in prompt:
-        answer = {"command": "cat probe.txt", "rationale": "probe differs"}
+    if mode == "garbage":
+        print("no json here"); sys.exit(0)
+    if "## Patch A" not in prompt:
+        answer = {"score": 9 if "GOOD" in prompt else 5, "reasons": ["rubric"], "risks": []}
     elif mode == "always_a":
-        answer = {"winner": "A", "confidence": 0.9, "reasons": ["A looks better"], "risks": []}
-    elif mode == "garbage":
-        print("I refuse to answer in JSON")
-        sys.exit(0)
+        answer = {"winner": "A", "confidence": 0.9, "reasons": ["A"], "risks": []}
     else:
         a = prompt.split("## Patch A")[1].split("## Evidence for B")[0]
         b = prompt.split("## Patch B")[1]
-        if mode == "evidence" and "## Distinguishing test" in prompt:
-            winner = "A" if "Output in A (passed" in prompt and "probe-good" in prompt.split("Output in A")[1].split("Output in B")[0] else "B"
-        elif mode == "evidence":
-            winner = "tie"
-        else:
-            winner = "A" if "GOOD" in a and "GOOD" not in b else "B" if "GOOD" in b and "GOOD" not in a else "tie"
-        answer = {"winner": winner, "confidence": 0.8, "reasons": [f"picked {winner}"], "risks": []}
+        winner = "A" if "GOOD" in a and "GOOD" not in b else "B" if "GOOD" in b and "GOOD" not in a else "tie"
+        answer = {"winner": winner, "confidence": 0.8, "reasons": [winner], "risks": []}
     open(out, "w").write(json.dumps(answer))
     """
 )
@@ -72,7 +64,8 @@ def repo(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     git(repo, "config", "user.email", "arena@example.com")
     git(repo, "config", "user.name", "Arena Test")
     (repo / "app.py").write_text("def value():\n    return 1\n")
-    (repo / "old.txt").write_text("to be deleted\n")
+    (repo / "tests").mkdir()
+    (repo / "tests" / "test_app.py").write_text("def test_ok():\n    assert True\n")
     git(repo, "add", ".")
     git(repo, "commit", "-qm", "initial")
     monkeypatch.setenv("AGENTS_ARENA_ROOT", str(repo))
@@ -83,32 +76,20 @@ def repo(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
 
 @pytest.fixture
 def fakes(tmp_path: Path) -> dict[str, Path]:
-    runner = tmp_path / "fake_runner.py"
-    runner.write_text(FAKE_RUNNER)
-    judge = tmp_path / "fake_judge.py"
+    agent, judge = tmp_path / "fake_agent.py", tmp_path / "fake_judge.py"
+    agent.write_text(FAKE_AGENT)
     judge.write_text(FAKE_JUDGE)
-    return {"runner": runner, "judge": judge}
+    return {"agent": agent, "judge": judge}
 
 
-def write_config(
-    repo: Path,
-    fakes: dict[str, Path] | None = None,
-    extra: str = "",
-    families: tuple[str, str] = ("fake-gen", "fake-judge"),
-) -> None:
-    """Write .agents-arena/config.toml. `extra` is TOML (top-level keys first); fake runner/judge tables go last."""
-    head = ["default_runner = 'fake'"] if fakes else []
-    tables = []
-    if fakes:
-        py = sys.executable
-        tables = [
-            "[runners.fake]",
-            f"argv = ['{py}', '{fakes['runner']}', '{{workspace}}', '{{run_dir}}']",
-            f"family = '{families[0]}'",
-            "[judges.fake]",
-            f"argv = ['{py}', '{fakes['judge']}', '{{prompt_file}}', '{{output_file}}']",
-            f"family = '{families[1]}'",
-        ]
-    config = repo / ".agents-arena" / "config.toml"
-    config.parent.mkdir(parents=True, exist_ok=True)
-    config.write_text("\n".join([*head, textwrap.dedent(extra), *tables]) + "\n")
+def command_contestant(fakes: dict[str, Path], name: str, **kw) -> dict:
+    return {
+        "name": name,
+        "harness": "command",
+        "argv": [sys.executable, str(fakes["agent"]), "{workspace}", "{run_dir}"],
+        **kw,
+    }
+
+
+def command_judge(fakes: dict[str, Path]) -> dict:
+    return {"harness": "command", "argv": [sys.executable, str(fakes["judge"]), "{prompt_file}", "{output_file}"]}

@@ -1,46 +1,42 @@
 ---
 name: agents-arena
 description: >
-  Compete several implementations of one coding task in isolated git worktrees and pick a winner on
-  evidence. Use when the user says "use the arena", "compare approaches", "compete variants", or wants
-  more than one attempt at a risky change.
+  Run experiments on coding agents: compare harnesses, models, skill edits or strategies with repeats and get a
+  scorecard. Use when the user says "arena", "compare agents", "A/B this skill", or wants the best of several attempts.
 ---
 
-# Agents Arena workflow
+# Agents Arena: how to use it
 
-The `agents-arena` MCP server gives each strategy its own detached git worktree, gates every attempt
-on checks against the base commit, and judges survivors blind: anonymized A/B, both orders.
+Agents Arena runs **experiments** on coding agents. Contestants are full recipes:
+**harness** (claude / codex / opencode) + **model** + **baseline** (`clean` | `real`) + **overlays** (any file, any target) + **strategy**.
+Each contestant runs `repeats` times, each run in its own git worktree. The arena checks every run against the base commit and judges it blind, then returns a **scorecard** for the arena's **objective**.
 
-## Steps
+## Flow
+1. **`arena_plan(request, mode)`**:
+   - `interview`: ask the user the returned questions, one at a time, and update `draft_spec`.
+   - `autopilot`: adapt `draft_spec` to the request and explain each choice in one line.
+   Show the final spec to the user before starting.
+2. **`arena_start(spec, wait=false)`**: preflight runs first and fails fast. Then poll **`arena_status`** until `status` is `done`.
+3. **`arena_result(html=true)`** returns the scorecard. Add `promote="branch"` to ship the winner without touching the user's checkout.
+4. **`arena_history(contestant=...)`** shows trends across arenas.
 
-1. **Open.** `arena_open(task="...", variants=["minimal_patch", "test_first"])`.
-   - Pass `carry_uncommitted=true` if the user has work in progress that variants should start from.
-   - Note the returned `arena_id` and each variant's `workspace` and brief.
-2. **Implement** each variant, inside its `workspace` only. There are two ways:
-   - Do it yourself: edit files in each workspace. You may use parallel sub-agents, one per workspace.
-   - Or delegate: `arena_run(runner="codex" | "claude" | "opencode", wait=false)`, then poll `arena_status`
-     until the job is `done`.
-3. **Check.** `arena_check()` snapshots every variant (a new checkpoint) and runs the configured checks.
-   Checks also run once on the base commit, so only *regressions* count against a variant.
-   - These disqualify a variant: deleting tests, touching CI or agent config, and new check failures.
-   - These need a human: added skip or xfail markers, `assert True`, conftest edits, and secret paths.
-4. **Judge.** `arena_judge(wait=false)`, then poll `arena_status`. The decision is one of:
-   - `winner`: safe to promote.
-   - `needs_human`: show the user `.agents-arena/arenas/<id>/report.md` and ask them to choose.
-   - `no_viable`: report why, and do not promote.
-5. **Promote.** `arena_promote(mode="branch")` creates `arena/<id>-<variant>` without touching the
-   user's checkout. Use `mode="apply"` only when the user asks for it.
-6. **Close.** `arena_close()` removes worktrees and refs. Reports are kept.
-
-## Optional
-
-- **Explore first:** `arena_open(explore=true)`, implement or run the `explore` variant, `arena_check()`,
-  then `arena_fork(source="explore")` to branch every strategy from its checkpoint.
-- **Unresolved decision:** `arena_refine()` forks the top two with the judge's critique in their brief.
-  Then run, check and judge again. The number of refine rounds is capped by config.
+## Writing good specs
+- **Spec files** (CLI): TOML uses `[[contestants]]` tables, or pass the same structure as JSON. Unknown keys are rejected, so typos fail loudly.
+- **Vary one thing.** For a skill A/B, keep the harness, model and baseline the same, and give each contestant a different overlay.
+- **Overlays:** `{"from": "<any path>", "to": "repo:<path>"}` puts a file or directory into the run's checkout. `home:<path>` targets the clean harness home and requires `baseline="clean"`. Overlays are never counted as the contestant's code.
+- **Setup:** `setup` is a shell command (e.g. `npm ci`) run once on the base commit and in every run's checkout before the agent starts. Its output is never counted as the contestant's code.
+- **Baseline:**
+  - `real` uses the user's actual setup. The arena never writes overlays into it, but the harness still records its usual session history there.
+  - `clean` starts from an empty harness home with auth only. Clean claude needs `CLAUDE_CODE_OAUTH_TOKEN` (`claude setup-token`) or `ANTHROPIC_API_KEY`. Clean opencode only sees providers keyed by environment variables, and every opencode contestant needs an explicit `model`.
+- **Objective:**
+  - `quality` and `elegance` are judged: a blind rubric score per run, then a final in both orders.
+  - `speed`, `tokens` and `cost` are metrics only, with no judge.
+  - Any other text becomes a custom rubric.
+- **Repeats:** 3–5 for comparisons you want to trust.
+- **Judge:** prefer a different model family than the contestants.
+- **Strategies:** for "most elegant solution", write 2–4 genuinely different, concrete approaches.
 
 ## Rules
-
-- Never edit the main checkout while an arena is open, and never commit inside a variant workspace.
-- Do not "fix" a variant's flags (for example, deleted tests) by hand to make it win.
-- Report the decision honestly. A `needs_human` result is a valid outcome.
+- Report the verdict honestly. A tie is a valid result.
+- Contestants and checks run agent-written code on this machine, the same as running tests on an untrusted branch.
+- `promote="apply"` only touches the user's tree if the winner's diff applies cleanly. Otherwise use `promote="branch"`.

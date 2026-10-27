@@ -44,11 +44,13 @@ def run(
 ) -> ProcResult:
     """Run argv. Exit 126/127 or a missing executable is `error`; a timeout kills the whole group."""
     started = time.monotonic()
+    child_env = clean_env(env)
+    child_env["PWD"] = str(cwd)  # tools like opencode resolve their project from $PWD, not getcwd()
     try:
         proc = subprocess.Popen(
             argv,
             cwd=cwd,
-            env=clean_env(env),
+            env=child_env,
             stdin=subprocess.DEVNULL,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,

@@ -47,6 +47,20 @@ def is_dirty(root: Path) -> bool:
     return bool(status)
 
 
+# Artifacts produced by running tools are never part of a contestant's change.
+ARTIFACT_EXCLUDES = [
+    ":(exclude,glob)**/__pycache__/**",
+    ":(exclude,glob)**/*.pyc",
+    ":(exclude,glob)**/.pytest_cache/**",
+    ":(exclude,glob)**/node_modules/**",
+    ":(exclude,glob)**/.DS_Store",
+    ":(exclude,glob)**/.venv/**",
+    ":(exclude,glob)**/.mypy_cache/**",
+    ":(exclude,glob)**/.ruff_cache/**",
+    ":(exclude,glob)**/.coverage",
+]
+
+
 def snapshot_commit(workdir: Path, parent: str, message: str) -> str:
     """Commit the whole working tree (tracked + untracked, minus ignored) without touching the real index."""
     index = Path(text(workdir, "rev-parse", "--path-format=absolute", "--git-path", "index"))
@@ -56,7 +70,7 @@ def snapshot_commit(workdir: Path, parent: str, message: str) -> str:
             # copy2 keeps the index mtime: git's racy-entry check depends on it, or same-second edits go unseen.
             shutil.copy2(index, tmp_index)
         env = {"GIT_INDEX_FILE": str(tmp_index), **IDENTITY}
-        git(workdir, "add", "-A", "--", ".", f":(exclude){STATE_DIR}", env=env)
+        git(workdir, "add", "-A", "--", ".", f":(exclude){STATE_DIR}", *ARTIFACT_EXCLUDES, env=env)
         tree = text(workdir, "write-tree", env=env)
     return text(workdir, "commit-tree", tree, "-p", parent, "-m", message, env=IDENTITY)
 
@@ -119,5 +133,21 @@ def create_branch(root: Path, name: str, commit: str) -> None:
     git(root, "branch", name, commit)
 
 
-def apply_3way(root: Path, patch_path: Path) -> None:
-    git(root, "apply", "--3way", str(patch_path))
+def apply_patch(root: Path, patch_path: Path) -> None:
+    """Apply to the working tree only if it applies cleanly; never leaves a half-applied tree."""
+    if subprocess.run(["git", "apply", "--check", str(patch_path)], cwd=root, capture_output=True).returncode != 0:
+        raise ArenaError(
+            "winner.diff doesn't apply cleanly to your working tree (it changed since the arena started?). "
+            "Nothing was modified. Use promote='branch' instead."
+        )
+    git(root, "apply", str(patch_path))
+
+
+def commit_patch(root: Path, base: str, patch_path: Path, message: str) -> str:
+    """Commit `patch` on top of `base` using a temporary index: no checkout, the user's tree is untouched."""
+    with tempfile.TemporaryDirectory() as tmp:
+        env = {"GIT_INDEX_FILE": str(Path(tmp) / "index"), **IDENTITY}
+        git(root, "read-tree", base, env=env)
+        git(root, "apply", "--cached", "--binary", str(patch_path), env=env)
+        tree = text(root, "write-tree", env=env)
+    return text(root, "commit-tree", tree, "-p", base, "-m", message, env=IDENTITY)

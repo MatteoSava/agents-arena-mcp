@@ -1,99 +1,106 @@
-# Design
+# Design (v0.3)
 
-This document records why Agents Arena v0.2 works the way it does and what was deliberately left out.
+Agents Arena v0.3 is an experiment bench: a spec describes a task and up to six contestants, the engine runs each contestant `repeats` times in isolation, and a scorecard says which one won on the stated objective. This document records how it is built and why.
 
-## Lifecycle and state
-
-`.agents-arena/` lives in the main repo and ignores itself, except for `config.toml` and `.gitignore`:
+## Architecture
 
 ```
-.agents-arena/
-  config.toml                 committed; packaged defaults fill in anything unset
-  current                     id of the most recently opened arena
-  ledger.jsonl                one outcome record per judged/promoted arena (for later judge calibration)
-  evals/                      eval-judge results
+arena_plan -> plan.py            (detect checks/setup/harnesses, draft a spec)
+arena_start -> pipeline.create   (validate, preflight, write arena.json + refs)
+            -> jobs.in_background / foreground
+               pipeline.execute: baseline -> run_one x (contestants x repeats) -> finish
+                                 finish: judge.score_runs -> judge.run_finals -> scorecard.build
+arena_status / arena_result / arena_history read the store
+```
+
+| Module | Role |
+|---|---|
+| `models.py` | Pydantic types. Spec side: `Spec`, `Contestant`, `Overlay`, `Check`, `JudgeSpec`. Runtime side: `Arena`, `Run`, `Snapshot`, `Gate`, `Metrics`, `Score`, `Match`, `Scorecard`, `Job`. `Spec` forbids unknown keys |
+| `harness.py` | One adapter per harness (claude, codex, opencode, command): agent argv, judge argv, preflight, clean-environment recipe, metrics parsing |
+| `workspace.py` | Per-run worktree and clean home, overlays, snapshots, cleanup |
+| `checks.py` | Check execution, the base-commit baseline, deterministic gates |
+| `pipeline.py` | Preflight, arena creation, the per-run flow, `execute`/`finish`, `promote` |
+| `judge.py` | Blind rubric scoring per run and both-order finals; JSON extraction; `best_run`, `pair_winner` |
+| `scorecard.py` | Per-contestant medians, winner rules, markdown and HTML, history record |
+| `plan.py` | `arena_plan`: detects checks and setup, installed harnesses, builds questions or a draft |
+| `arena.py` | The five operations. Each is an MCP tool and a CLI subcommand |
+| `server.py`, `cli.py` | FastMCP registration plus the `arena://guide` resource; argparse CLI with the same parameter names, plus `init` and `eval-judge` |
+| `evals.py` | `eval-judge`: seeded pairs run as real arenas, then judged directly |
+| `store.py` | Persistence: flock-guarded JSON, atomic writes, append-only logs, history |
+| `proc.py` | The one subprocess helper: timeouts, process groups, owner tracking, log capture |
+| `git.py` | Git plumbing: snapshot commits, refs, worktrees, patches, branches |
+| `jobs.py` | Background jobs with progress and MCP progress notifications |
+| `scaffold.py` | `init`: writes `GUIDE.md` as a skill per agent |
+
+State changes are read-modify-write under an `flock` on `arena.lock` (`Store.mutate`). The lock is re-entrant per thread and never held while an agent runs.
+
+## Data layout
+
+```
+<repo>/.agents-arena/                 self-ignoring (its .gitignore is "*")
+  current                             id of the most recently started arena
+  history.jsonl                       one record per finished arena (arena_history reads this)
   arenas/<id>/
     arena.json  arena.lock  events.jsonl
-    variants/<name>/patch-<n>.diff  extra-brief.md
-    runs/<run>/   prompt.md stdout.log stderr.log
-    judge/<match>/ prompt.md A.diff B.diff schema.json output.json
+    spec.json                         the validated spec
     jobs/<job>.json
-    report.md  winner.diff  pr-summary.md
+    runs/<run>/                       prompt.md, patch.diff, stdout.log, stderr.log
+    judge/<rubric-run | final-order>/ prompt.md, schema.json, output.json, logs
+    result.json  report.md            written when the arena finishes
+    report.html                       on arena_result(html=true)
+    winner.diff                       on arena_result(promote=...)
+
+refs/arena/<id>/base                  the base commit
+refs/arena/<id>/<run>-base            base + the run's overlays/setup output (only when it has any)
+refs/arena/<id>/<run>                 the run's snapshot commit
+
+~/.cache/agents-arena/worktrees/<repo>-<hash>/<id>/<run>/{repo,home}
 ```
 
-- **Worktrees** are detached checkouts under `~/.cache/agents-arena/worktrees/<repo>-<hash>/<arena>/<variant>`.
-  If the cache is on a different volume, they go in a sibling directory instead, so APFS clones and uv
-  hardlinks keep working. Since the worktrees are detached, no branches are left behind.
-- **Checkpoints.** `arena_check` commits the full working tree of each variant (tracked and untracked,
-  minus ignored files) to `refs/arena/<id>/<variant>/<n>`. It builds the commit through a temporary
-  index file, so the agent's own index is never touched. The temporary index is a copy that keeps the
-  original's mtime; git's racy-entry check depends on it, and a fresh mtime would make same-second,
-  same-size edits invisible. Every diff and patch is commit-to-commit, so it is deterministic.
-- **Uncommitted work.** With `carry_uncommitted=true`, your dirty tree is snapshotted and that commit
-  becomes the arena base. Your own changes are therefore never credited to a variant.
-- **Concurrency.** Every state change is a read-modify-write under an `flock` on `arena.lock`. The lock
-  is re-entrant per thread and is never held while an agent runs.
+Run ids are `<contestant>-<repeat>`. Worktrees are detached checkouts, so no branches are left behind. If the cache is on a different volume than the repo, they go in a sibling `.agents-arena-worktrees/` directory instead, so clones and hardlinks stay cheap. `home` exists only for `clean` contestants and is deleted with the worktree, since it may hold a copied auth file.
+
+The snapshot commit is built through a temporary index, so the agent's own index is untouched. The refs keep the commits reachable after the worktree is gone. A run's diff is measured from its own base: the arena base, or the overlay commit when overlays or `setup` changed the tree. That keeps overlays and setup output out of the contestant's patch.
+
+## Isolation
+
+The recipe comes from [the v0.3 spike](v0.3-isolation-spike.md), which tested claude 2.1.291, codex-cli 0.164.0 and opencode 2.1.4.
+
+- `real`: the user's actual home, never copied or modified. Copies lose keychain and database auth.
+- `clean`: a fresh `HOME` plus each harness's own variables (`CLAUDE_CONFIG_DIR`, `CODEX_HOME`, `XDG_*` for opencode, `--standalone`). Redirecting only the harness variable still leaked user skills, so `HOME` is always redirected. Package caches (`UV_CACHE_DIR`, `XDG_CACHE_HOME`, npm) stay on the real paths.
+- Children get `PWD` set to their real working directory. Without it opencode resolved its project from the launcher's `$PWD`.
+- Judge calls run in a temporary directory outside the repo.
+
+The spike also records where auth does not survive isolation, and that metrics come from different places per harness (claude's result JSON, codex's `turn.completed`, opencode's `session export`).
 
 ## Selection
 
-1. **Gates.** Each check result is compared with the same check on the base commit.
-   - These disqualify a variant: empty diff, deleted test files, protected paths, and checks that pass on
-     base but fail on the variant.
-   - These require a human: secret paths, test-config edits, added skip/xfail markers, and `assert True`.
-   - These are reported only: edits to existing tests (legitimate for test-first work), and checks that
-     already fail on base.
-2. **Dedupe.** Patches with the same whitespace-normalized hash are judged once.
-3. **Cap.** Survivors are capped at `max_survivors` (default 5), ranked by the deterministic key.
-4. **Judge.** Every ordered pair gets its own call, with labels A and B only: no variant names, branch
-   names or paths. Each call runs in an empty directory with user config ignored, and the answer must
-   match a strict schema. If the output can't be used, it counts as a tie, and the reason is recorded.
-5. **Decide.** A variant wins a pair only if it wins in both orders. The Copeland score is pair wins
-   minus pair losses.
-   - Ties at the top are broken deterministically: fewer failing checks, then fewer review flags, then
-     a smaller diff. The report names the rule that decided.
-   - If they are still tied, the result is `needs_human`. A winner that carries review flags is also
-     `needs_human`.
-   - If no variant survives the gates, the result is `no_viable`.
+1. **Eligibility.** A run is eligible if it finished, produced a non-empty change, and tripped no `disqualify` gate. The gates are `empty`, `agent_timeout`, `test_deleted`, `protected_path`, and `check_regression` (a check that passed, or did not exist, on the base commit fails on the run). `needs_human` gates (`agent_failed`, `agent_config_edited`, `secret_path`, `test_config_changed`, `skip_marker_added`, `trivial_assert_added`) and `info` gates are reported but do not exclude. Checks run once on the base commit, so only regressions count. Statistics cover eligible runs only.
+2. **Rubric.** For judged objectives, every eligible run gets a blind score from 0 to 10 against the objective's rubric (`quality` and `elegance` have built-in rubrics; other text is used as the rubric). The judge sees the task, the patch and the check evidence, with no contestant names.
+3. **Final.** Each contestant's best run (highest score, then fewest failing checks, then fewest changed lines) meets each other contestant's best run, judged in both orders. A run wins a pair only if it wins in every order. A split or a tie is no signal, and an unusable judge output counts as a tie.
+4. **Winner by objective.**
+   - Judged: most pair wins, then highest median score, then highest eligible rate. A tie on all three is reported as a tie ("your call"), with no winner. With one contestant there is no final and the winner is the only eligible contestant.
+   - `speed`, `tokens`, `cost`: lowest median of that metric among eligible contestants, ties broken by eligible rate. If no one reported the metric, there is no winner.
+   - No eligible run anywhere: no winner, and the verdict says so.
+5. **Winner run.** The run that `promote` ships is the contestant's best run (judged) or its best run on the metric (metric objectives).
 
-### Why not Elo or Bradley-Terry?
+A tie is a valid result. The scorecard states how the winner was decided, and notes list per-run errors.
 
-Online Elo depends on match order ([2311.17295](https://arxiv.org/abs/2311.17295)). Bradley-Terry with
-bootstrap confidence intervals is order-invariant, but with 2–5 variants the intervals always overlap,
-so it would end in `needs_human` every time while looking rigorous. Copeland over both-order verdicts
-is easier to explain and makes position bias visible as a tie. Bradley-Terry may still be worth it as a
-cross-arena prior per strategy, once the ledger holds about 30 or more arenas.
+## What was kept or cut from v0.2
 
-### Why not knockout, Swiss or MCTS?
+Kept: the typed Pydantic core and flat modules, snapshot commits under `refs/arena/`, detached worktrees, the `flock` store, the single subprocess helper, baseline checks and regression-only gating, the reward-hacking tripwires, blind judging in both orders with a strict schema and an isolated judge, `eval-judge`, `init`, and MCP tools being plain functions with a CLI parity test.
 
-Knockout and Swiss rounds don't pay off at 5 or fewer survivors: judging every pair in both orders is
-only 12 calls at n=4. MCTS needs a value function. Bounded search gets most of the benefit:
-explore-then-fork ([SWE-Replay](https://arxiv.org/abs/2601.22129)), a distinguishing-test tie-break
-([S*](https://arxiv.org/abs/2502.14382)), one depth-capped refinement round
-([DARS](https://arxiv.org/abs/2503.14269)), and an agentic final round
-([Agent-as-a-Judge](https://arxiv.org/abs/2410.10934)). All of these are opt-in.
+Cut:
+- **The 9 tools** (open, run, check, judge, close, fork, refine, promote, status). A run is now a pipeline, so five tools cover plan, start, status, result and history.
+- **`config.toml`.** Everything is in the spec, so a run is reproducible from `spec.json`.
+- **Variants.** Replaced by contestants with a harness, model, baseline and overlays, because the interesting experiments vary those, not only a strategy string.
+- **Pairwise Copeland over every survivor.** Replaced by per-run rubric scores plus a final over each contestant's best run. With repeats, comparing every pair of runs costs too many judge calls.
+- **Checkpoints, fork, refine, explore-then-fork, distinguishing-test tie-break, agentic final judge.** They served the single-task variant search, not controlled comparison, and added most of the v0.2 surface. They can return if a use case needs them.
+- **The manual runner and the ledger.** The scorecard history replaces the ledger.
+- **v0.2 arena state.** It can't be read.
 
-## Trust model
+## Deferred and rejected
 
-Check commands come only from the main repo's `config.toml` or from the calling agent, and run with
-`sh -c` on the host. They execute agent-written code with your privileges, the same as running
-`make test` on an untrusted branch, so isolation comes only from the runner's sandbox. The v0.1 regex
-command blocklist was removed: it was trivially bypassed (`sh -c`, `python -c`) and so offered no real
-protection.
-
-## LayerFS
-
-Evaluated and deferred. LayerFS has no Python binding and needs Node plus a Rust build. On macOS it runs
-inside Docker, so the host `codex` and `pytest` can't work in its mounts. It has no git interop, and its
-store is not crash-durable. Git refs, detached worktrees and copy-on-write clones already give durable,
-git-native checkpoints and forks. A `WorkspaceBackend` protocol will be extracted only when a second
-backend actually exists. Revisit if LayerFS ships native macOS support or a Python binding, or if runs
-need more than about 8 variants on Linux CI.
-
-## MCP
-
-Every operation is a plain function registered with `mcp.tool(fn)`. Its `Annotated[..., Field(description)]`
-parameters give clients full input schemas, and the CLI exposes exactly the same parameters, which a
-test enforces. Long runs use background threads plus `arena_status` polling, which works with every
-client. Calls with `wait=true` also send MCP progress notifications. MCP background tasks are deferred:
-in fastmcp 3.3.1 they need the `fastmcp[tasks]` extra (pydocket) and async tools, and clients must
-support the tasks protocol.
+- **LayerFS.** No Python binding, needs Node and a Rust build, runs in Docker on macOS (so host `codex` and `pytest` can't use its mounts), no git interop, and its store isn't crash-durable. Git refs and detached worktrees already give durable, git-native workspaces. Revisit if it ships native macOS support or a Python binding.
+- **MCP background tasks.** In fastmcp they need an extra, async tools, and client support. Background threads plus `arena_status` polling work with every client. `wait=true` sends progress notifications.
+- **Elo, Bradley-Terry, Swiss, knockout, MCTS.** Elo depends on match order, and Bradley-Terry intervals always overlap at this size. Both-order finals over 6 or fewer best runs are cheap and make position bias visible as a tie.
+- **A regex blocklist for check commands.** It was trivially bypassed and gave no real protection. Isolation is the trust model's job, and v0.3 states plainly that it runs agent-written code on your machine.
