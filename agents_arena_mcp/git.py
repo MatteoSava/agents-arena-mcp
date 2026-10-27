@@ -119,8 +119,14 @@ def create_branch(root: Path, name: str, commit: str) -> None:
     git(root, "branch", name, commit)
 
 
-def apply_3way(root: Path, patch_path: Path) -> None:
-    git(root, "apply", "--3way", str(patch_path))
+def apply_patch(root: Path, patch_path: Path) -> None:
+    """Apply to the working tree only if it applies cleanly; never leaves a half-applied tree."""
+    if subprocess.run(["git", "apply", "--check", str(patch_path)], cwd=root, capture_output=True).returncode != 0:
+        raise ArenaError(
+            "winner.diff doesn't apply cleanly to your working tree (it changed since the arena started?). "
+            "Nothing was modified. Use promote='branch' instead."
+        )
+    git(root, "apply", str(patch_path))
 
 
 def commit_patch(root: Path, base: str, patch_path: Path, message: str) -> str:

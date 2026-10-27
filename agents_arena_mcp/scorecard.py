@@ -81,7 +81,9 @@ def _judged_winner(
     for pair in finals_by_pair.values():
         if (w := pair_winner(pair)) is not None:
             wins[by_run[w]] += 1
-    ranked = sorted(alive, key=lambda s: (-wins[s.name], -(s.median_score or -1), -s.pass_rate))
+    ranked = sorted(
+        alive, key=lambda s: (-wins[s.name], -(s.median_score if s.median_score is not None else -1), -s.pass_rate)
+    )
     best = ranked[0]
     second = ranked[1] if len(ranked) > 1 else None
     if second and (wins[best.name], best.median_score, best.pass_rate) == (
@@ -96,7 +98,12 @@ def _judged_winner(
             notes=notes,
         )
     label = spec.objective if spec.objective in ("quality", "elegance") else "rubric"
-    decided = "won the final in both orders" if wins[best.name] else f"highest median {label} score"
+    if second is None or wins[best.name] > wins[second.name]:
+        decided = "won the final in both orders" if wins[best.name] else "only eligible contestant"
+    elif best.median_score is not None:
+        decided = f"highest median {label} score"
+    else:
+        decided = "highest eligible rate"
     run = best_run(arena, best.name)
     return Scorecard(objective=spec.objective, stats=stats, winner=best.name, winner_run=run.id if run else None,
                      verdict=f"{best.name} {decided}", notes=notes)  # fmt: skip
@@ -109,7 +116,7 @@ def _fmt(value: float | None, kind: str) -> str:
             "lines": f"{value:g}", "rate": f"{value:.0%}"}[kind]  # fmt: skip
 
 
-COLUMNS = (("pass rate", "pass_rate", "rate"), ("score", "median_score", "score"), ("tokens", "median_tokens", "tokens"),
+COLUMNS = (("eligible", "pass_rate", "rate"), ("score", "median_score", "score"), ("tokens", "median_tokens", "tokens"),
            ("time", "median_wall_ms", "ms"), ("cost", "median_cost_usd", "usd"), ("diff lines", "median_lines", "lines"))  # fmt: skip
 
 
@@ -128,6 +135,15 @@ def render_markdown(arena: Arena) -> str:
     return "\n".join(lines) + "\n"
 
 
+def _bar_row(name: str, value: float | None, top: float, kind: str, color: str) -> str:
+    bar = ""
+    if value is not None:
+        bar = (f'<span class="bar" style="width:{value / top * 100:.1f}%;background:{color}" '
+               f'title="{html.escape(name)}: {_fmt(value, kind)}"></span>')  # fmt: skip
+    return (f'<div class="row"><span class="lab">{html.escape(name)}</span><span class="track">{bar}</span>'
+            f'<span class="val">{_fmt(value, kind)}</span></div>')  # fmt: skip
+
+
 def render_html(arena: Arena) -> str:
     """One self-contained page: verdict, labeled bar small-multiples (one per metric), and the table."""
     card = arena.scorecard
@@ -137,11 +153,7 @@ def render_html(arena: Arena) -> str:
     for title, field, kind in COLUMNS:
         values = [(s.name, getattr(s, field)) for s in card.stats]
         top = max((v for _, v in values if v is not None), default=0) or 1
-        bars = "".join(
-            f'<div class="row"><span class="lab">{html.escape(n)}</span><span class="bar" style="width:{(v or 0) / top * 70:.1f}%;'
-            f'background:{color[n]}" title="{html.escape(n)}: {_fmt(v, kind)}"></span><span class="val">{_fmt(v, kind)}</span></div>'
-            for n, v in values
-        )  # fmt: skip
+        bars = "".join(_bar_row(n, v, top, kind, color[n]) for n, v in values)
         charts.append(f'<div class="mini"><h3>{title}</h3>{bars}</div>')
     legend = "".join(
         f'<span><i style="background:{color[s.name]}"></i>{html.escape(s.name)}</span>' for s in card.stats
@@ -161,8 +173,8 @@ h1{{font-size:22px}}.verdict{{background:#0b0b0b;color:#fcfcfb;padding:16px 20px
 .legend{{display:flex;gap:16px;margin:16px 0;color:#52514e}}.legend i{{display:inline-block;width:12px;height:12px;border-radius:3px;margin-right:6px}}
 .grid{{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}}.mini{{border:1px solid #e4e2dc;border-radius:6px;padding:10px 12px}}
 .mini h3{{margin:0 0 8px;font-size:13px;color:#52514e;font-weight:600}}.row{{display:flex;align-items:center;gap:8px;margin:4px 0}}
-.lab{{width:90px;font-size:12px;color:#52514e;overflow:hidden;text-overflow:ellipsis}}.bar{{height:14px;border-radius:0 4px 4px 0;min-width:2px}}
-.val{{font-size:12px;font-weight:600}}table{{border-collapse:collapse;width:100%;margin-top:20px;font-size:13px}}
+.track{{flex:1;min-width:0}}.lab{{flex-shrink:0;width:90px;font-size:12px;color:#52514e;overflow:hidden;text-overflow:ellipsis}}.bar{{height:14px;border-radius:0 4px 4px 0;min-width:2px}}
+.val{{flex-shrink:0;min-width:48px;font-size:12px;font-weight:600}}table{{border-collapse:collapse;width:100%;margin-top:20px;font-size:13px}}
 td{{border-bottom:1px solid #e4e2dc;padding:6px 8px}}tr:first-child td{{font-weight:600}}</style></head><body>
 <h1>Arena {html.escape(arena.id)}</h1><p>{html.escape(arena.spec.task)}<br>objective: {html.escape(card.objective)} · repeats: {arena.spec.repeats}</p>
 <div class="verdict">{html.escape(card.verdict)}</div><div class="legend">{legend}</div><div class="grid">{"".join(charts)}</div>

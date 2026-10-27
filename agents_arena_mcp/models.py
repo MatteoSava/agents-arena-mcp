@@ -232,7 +232,7 @@ class ContestantStats(BaseModel):
     name: str
     runs: int
     eligible: int
-    pass_rate: float
+    pass_rate: float  # eligible runs / runs (non-empty change, no disqualifying gate)
     median_score: float | None = None
     median_tokens: float | None = None
     median_wall_ms: float | None = None

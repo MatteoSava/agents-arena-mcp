@@ -151,7 +151,7 @@ def finish(store: Store, arena_id: str, progress: Progress) -> None:
 
 
 def promote(store: Store, arena_id: str | None, mode: str) -> dict:
-    """patch: write winner.diff; branch: commit it on the base without checkout; apply: git apply --3way."""
+    """patch: write winner.diff; branch: commit it on the base without checkout; apply: git apply."""
     if mode not in ("patch", "branch", "apply"):
         raise ArenaError(f"promote mode must be patch, branch or apply, not {mode!r}")
     arena = store.load(arena_id)
@@ -173,6 +173,6 @@ def promote(store: Store, arena_id: str | None, mode: str) -> dict:
         git.create_branch(root, branch, git.commit_patch(root, arena.base_commit, patch, f"arena {arena.id}: {run.id}"))
         result["branch"] = branch
     elif mode == "apply":
-        git.apply_3way(root, patch)
+        git.apply_patch(root, patch)
     store.event(arena.id, "promote", mode=mode, run=run.id)
     return result
