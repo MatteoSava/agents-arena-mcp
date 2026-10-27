@@ -1,0 +1,10 @@
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["score", "reasons", "risks"],
+  "properties": {
+    "score": {"type": "number", "minimum": 0, "maximum": 10},
+    "reasons": {"type": "array", "items": {"type": "string"}},
+    "risks": {"type": "array", "items": {"type": "string"}}
+  }
+}
