@@ -87,6 +87,7 @@ def run_case(case: dict[str, Any], config) -> dict[str, Any]:
         "orders": [m.winner or "tie" for m in matches],
         "flipped": matches[0].winner != matches[1].winner,
         "labels": [m.verdict.winner for m in matches],
+        "reasons": [m.verdict.reasons[:3] for m in matches],
         "latency_ms": latency_ms,
         "errors": [m.verdict.reasons[0] for m in matches if m.verdict.confidence == 0.0 and m.verdict.reasons],
     }
