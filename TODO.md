@@ -58,6 +58,7 @@ State: v0.3 (experiment bench) is implemented and verified on real harnesses. Th
 
 ## Tests
 - [TEST] Harness-level fakes for opencode `session export`
+- [TEST] `test_position_biased_judge_is_caught` flaked once on macOS / py3.13 CI (flip rate 0.875: one case didn't flip). It didn't reproduce in 14 local runs (py3.11 and 3.13), 3 CI reruns, or a 120-add concurrent `git worktree` stress test. The assertion now names the case and its run error, so look there if it recurs
 - [DONE] An autouse fixture points XDG_CACHE_HOME at tmp_path. The 43 empty dirs came from eval-judge runs, now cleaned at the source
 - [DONE] Foreground start is tracked as a job (test added)
 - [TEST] Judge cwd outside the repo (`tmp_path` can't prove it)
