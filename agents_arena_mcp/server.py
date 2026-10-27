@@ -29,3 +29,7 @@ def make_mcp() -> FastMCP:
 
 def main() -> None:
     make_mcp().run()
+
+
+if __name__ == "__main__":
+    main()

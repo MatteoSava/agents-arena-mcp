@@ -88,3 +88,20 @@ def test_cli_init_installs_skills(repo, capsys):
         text = (repo / d / "skills/agents-arena/SKILL.md").read_text()
         assert text.startswith("---\nname: agents-arena") and "arena_plan" in text
     assert cli.main(["init", "--skills", "nope"]) == 2
+
+
+def test_repo_mcp_json_starts_a_working_server():
+    """The server Claude Code launches from this repo's .mcp.json must answer over stdio."""
+    from pathlib import Path
+
+    from fastmcp.client.transports import StdioTransport
+
+    root = Path(__file__).resolve().parent.parent
+    server = json.loads((root / ".mcp.json").read_text())["mcpServers"]["agents-arena"]
+    transport = StdioTransport(server["command"], server["args"], env=server.get("env"), cwd=str(root))
+
+    async def go():
+        async with Client(transport) as c:
+            return await asyncio.wait_for(c.list_tools(), timeout=60)
+
+    assert "arena_plan" in {t.name for t in asyncio.run(go())}
