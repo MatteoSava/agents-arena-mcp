@@ -24,7 +24,7 @@ Each contestant runs `repeats` times, each run in its own git worktree. The aren
 - **Spec files** (CLI): TOML uses `[[contestants]]` tables, or pass the same structure as JSON. Unknown keys are rejected, so typos fail loudly.
 - **Vary one thing.** For a skill A/B, keep the harness, model and baseline the same, and give each contestant a different overlay.
 - **Overlays:** `{"from": "<any path>", "to": "repo:<path>"}` puts a file or directory into the run's checkout. `home:<path>` targets the clean harness home and requires `baseline="clean"`. Overlays are never counted as the contestant's code.
-- **Setup:** `setup` is a shell command (e.g. `npm ci`) run once on the base commit and in every run's checkout before the agent starts. Its output is never counted as the contestant's code.
+- **Setup:** `setup` is a shell command (e.g. `npm ci`) run once on the base commit and in every run's checkout before the agent starts. Its output is never counted as the contestant's code. Setup and checks run in the user's own environment, even for `clean` contestants: only the agent is isolated.
 - **Baseline:**
   - `real` uses the user's actual setup. The arena never writes overlays into it, but the harness still records its usual session history there.
   - `clean` starts from an empty harness home with auth only. Clean claude needs `CLAUDE_CODE_OAUTH_TOKEN` (`claude setup-token`) or `ANTHROPIC_API_KEY`. Clean opencode only sees providers keyed by environment variables, and every opencode contestant needs an explicit `model`.

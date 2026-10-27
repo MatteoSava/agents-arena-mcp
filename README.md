@@ -216,7 +216,9 @@ The CLI always waits for a run to finish, because a background run would die whe
 
 - Contestants and checks run agent-written code on your machine with your privileges, the same as running `make test` on an untrusted branch. Worktrees isolate files, not processes.
 - A `real` contestant has your usual config and credentials.
-- Check and setup commands come only from the spec. Judges run in a temporary directory outside your repo.
+- Check and setup commands come only from the spec, and they run in your environment. Only the agent gets the clean home. Judges run in a temporary directory outside your repo.
+- Agents share the repo's `.git`. If one creates a branch, tag or stash, the scorecard lists it so you can delete it.
+- Ctrl-C kills the running agents and judges and marks the arena failed. If the process dies some other way, `arena_status` reports the arena as failed.
 - macOS and Linux are supported. Windows, network filesystems, git submodules and Git LFS are not.
 - Verified with claude 2.1.291, codex-cli 0.164.0 and opencode 2.1.4. CLI flags and output formats are what change between versions. Each harness's isolation recipe is in [docs/v0.3-isolation-spike.md](docs/v0.3-isolation-spike.md).
 

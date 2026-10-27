@@ -1,5 +1,23 @@
 # Changelog
 
+## 0.3.1 (2026-10-27)
+
+### Fixed
+- Ctrl-C during `agents-arena start` now kills the running agents and judges and marks the arena failed. Before, the agents kept running in their own process groups and the arena stayed "running". The CLI exits with code 130 instead of printing a traceback.
+- Foreground runs (`wait=true`, the CLI) are tracked as jobs, so an arena whose process died is reported as failed.
+- `.agents-arena/.gitignore` is now `*`. The v0.2 file un-ignored itself, so the state dir showed in `git status`. Existing files are upgraded on the next run.
+- The repo's `.mcp.json` server (`python -m agents_arena_mcp.server`) exited at once.
+- Empty worktree directories are removed when an arena finishes. `eval-judge` left 8 behind per run.
+- `eval-judge` runs judge preflight before running any case.
+- Contestant names ending in `.` or `.lock` are rejected, because they made invalid git refs at promote time.
+- Removed a stray `calc.py` that shipped in 0.3.0.
+
+### Changed
+- `setup` runs in your environment for every contestant, as it already did for the baseline. Only the agent is isolated.
+- The scorecard lists branches, tags and stashes that appeared during the runs (agents share `.git`).
+- Removed the unused `ship` spec field and the planner's "ship" question. Specs that still set `ship` are rejected (unknown keys fail validation).
+- Removed dead code and the stale `.claude/mcp.json`.
+
 ## 0.3.0 (2026-10-27)
 
 Agents Arena is now an experiment bench: contestants (harness + model + baseline + overlays + strategy) run several times each, and a scorecard says which won. See `docs/design.md` and `docs/v0.3-isolation-spike.md`.

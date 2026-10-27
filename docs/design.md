@@ -57,7 +57,7 @@ refs/arena/<id>/<run>                 the run's snapshot commit
 ~/.cache/agents-arena/worktrees/<repo>-<hash>/<id>/<run>/{repo,home}
 ```
 
-Run ids are `<contestant>-<repeat>`. Worktrees are detached checkouts, so no branches are left behind. If the cache is on a different volume than the repo, they go in a sibling `.agents-arena-worktrees/` directory instead, so clones and hardlinks stay cheap. `home` exists only for `clean` contestants and is deleted with the worktree, since it may hold a copied auth file.
+Run ids are `<contestant>-<repeat>`. Worktrees are detached checkouts, so no branches are left behind. If the cache is on a different volume than the repo, they go in a sibling `.agents-arena-worktrees/` directory instead, so clones and hardlinks stay cheap. `home` exists only for `clean` contestants and is deleted with the worktree, since it may hold a copied auth file. The arena's worktree directory, and the per-repo directory above it, are removed once they are empty.
 
 The snapshot commit is built through a temporary index, so the agent's own index is untouched. The refs keep the commits reachable after the worktree is gone. A run's diff is measured from its own base: the arena base, or the overlay commit when overlays or `setup` changed the tree. That keeps overlays and setup output out of the contestant's patch.
 
@@ -69,6 +69,9 @@ The recipe comes from [the v0.3 spike](v0.3-isolation-spike.md), which tested cl
 - `clean`: a fresh `HOME` plus each harness's own variables (`CLAUDE_CONFIG_DIR`, `CODEX_HOME`, `XDG_*` for opencode, `--standalone`). Redirecting only the harness variable still leaked user skills, so `HOME` is always redirected. Package caches (`UV_CACHE_DIR`, `XDG_CACHE_HOME`, npm) stay on the real paths.
 - Children get `PWD` set to their real working directory. Without it opencode resolved its project from the launcher's `$PWD`.
 - Judge calls run in a temporary directory outside the repo.
+- `setup` and checks run in the user's environment, in the baseline and in every run, so a check can only differ because of the contestant's change. Only the agent gets the clean home.
+- Agents share the repo's `.git`, so they can create branches, tags or stashes. These can't be blocked cheaply. Refs that appear under `refs/heads`, `refs/tags` or `refs/stash` during the runs are listed in the scorecard notes (`Arena.new_refs`).
+- Every arena run, foreground or background, has a job record holding its pid. `arena_status` marks an arena failed when its job's process is gone. Ctrl-C calls `proc.cancel(arena_id)`, which kills the arena's agent and judge process groups and refuses new ones. They run in their own sessions, so the terminal's SIGINT doesn't reach them.
 
 The spike also records where auth does not survive isolation, and that metrics come from different places per harness (claude's result JSON, codex's `turn.completed`, opencode's `session export`).
 
