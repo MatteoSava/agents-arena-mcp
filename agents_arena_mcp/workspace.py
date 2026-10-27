@@ -41,7 +41,11 @@ def apply_overlays(workspace: Path, home: Path | None, overlays: list[Overlay]) 
         root = workspace if overlay.scope == "repo" else home
         if root is None:
             raise ArenaError(f"overlay {overlay.to} needs baseline='clean'")
+        if not src.exists():
+            raise ArenaError(f"overlay source not found: {overlay.source}")
         dst = root / overlay.rel
+        if not dst.parent.resolve().is_relative_to(root.resolve()):
+            raise ArenaError(f"overlay target {overlay.to} escapes its root")
         if dst.is_dir() and not dst.is_symlink():
             shutil.rmtree(dst)
         elif dst.exists() or dst.is_symlink():

@@ -1,8 +1,10 @@
 from pathlib import Path
 
+import pytest
 from conftest import git
 
 from agents_arena_mcp import workspace
+from agents_arena_mcp.errors import ArenaError
 from agents_arena_mcp.models import Arena, Overlay, Run, Spec
 from agents_arena_mcp.store import Store
 
@@ -58,3 +60,21 @@ def test_commit_patch_builds_a_branch_commit_without_checkout(repo, tmp_path):
     commit = g.commit_patch(repo, arena.base_commit, Path(snap.patch_path), "arena: a-1")
     assert git(repo, "show", f"{commit}:new.py") == "X = 1\n"
     assert git(repo, "rev-parse", "--abbrev-ref", "HEAD").strip() == "main"
+
+
+def test_overlay_refuses_symlink_escape_and_missing_source(repo, tmp_path):
+    arena = make_arena(repo, tmp_path)
+    run = Run(id="a-1", contestant="a", repeat=1)
+    ws = workspace.create(arena, run)
+    outside = tmp_path / "outside"
+    outside.mkdir()
+    (ws / "link").symlink_to(outside)
+    src = tmp_path / "x.md"
+    src.write_text("x\n")
+    with pytest.raises(ArenaError, match="escapes"):
+        workspace.apply_overlays(ws, None, [Overlay.model_validate({"from": str(src), "to": "repo:link/x.md"})])
+    assert list(outside.iterdir()) == []
+    with pytest.raises(ArenaError, match="not found"):
+        workspace.apply_overlays(
+            ws, None, [Overlay.model_validate({"from": str(tmp_path / "nope"), "to": "repo:y.md"})]
+        )
