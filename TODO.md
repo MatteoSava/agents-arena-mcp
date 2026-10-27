@@ -1,75 +1,58 @@
 # TODO
 
-Goal: ship Agents Arena v0.2, following the research-backed revamp plan: fix the confirmed bugs,
-rebuild on a small typed core, make selection trustworthy, and add bounded checkpoint/branching search.
+State: v0.3 (experiment bench) is implemented and verified on real harnesses. The release (version bump, tag, push) is a separate step.
 
-## Phase A0: Tooling
-- [DONE] MIT LICENSE, seeded TODO.md, README install via uv/uvx
-- [DONE] python>=3.11, pin fastmcp, declare pydantic, dev group (pytest, ruff, basedpyright)
-- [DONE] ruff fixes + format
-- [DONE] CI on macOS + Linux (workflow added; first run happens on push)
+## v0.3 summary
+- [DONE] Spike: isolation recipe per harness (docs/v0.3-isolation-spike.md)
+- [DONE] 5 tools (plan, start, status, result, history) plus `init` and `eval-judge`; spec-only config
+- [DONE] Contestants, clean/real baselines, overlays, repeats, setup, objectives
+- [DONE] Blind rubric per run plus both-order final; scorecard, history, HTML report
+- [DONE] Gates including `agent_timeout` and `agent_failed`
+- [DONE] README, docs/design.md, CHANGELOG, refreshed skill
+- [DONE] Fixes from real-harness runs: build artifacts in patches, inherited `$PWD` (opencode), timed-out agent could win, invisible agent stderr, judge ran inside the user's repo
 
-## Phase A1: Bug fixes (failing test first)
-- [DONE] Untracked files dropped from variant diff
-- [DONE] include_current_diff never carried uncommitted changes into worktrees
-- [DONE] Cleanup leaked branches and worktree dirs; partial open had no rollback
-- [DONE] promote --mode branch switched the user's checkout
-- [DONE] opencode runner/judge passed nonexistent `--dir`
-- [DONE] Missing executable / timeout in checks raised instead of being recorded
-- [DONE] score()/scoreboard() wrote the winner; current-arena followed last save; reads created state
-- [DONE] Secret path patterns over-matched (`docs/secrets-handling.md`)
-- [DONE] Non-UTF-8 diff crashed diff_against
-- [DONE] No locking; fixed `.json.tmp` name collided between writers
-- [DONE] Found during the rewrite: slugify turned `minimal_patch` into `minimal-patch`, losing its strategy text
-- [DONE] Found during the rewrite: racy-git miss of same-second, same-size edits (temp index must keep its mtime)
+## Verification results (2026-10-27)
+- [DONE] stdio MCP smoke via uvx, claude real vs codex clean: passed
+  - [NOTE] Both fixed the bug. claude: 188k tokens, $0.32. codex: 77k tokens, no cost reported. `~/.codex` untouched.
+- [DONE] opencode real and clean (openrouter/openai/gpt-5-mini): passed after the PWD fix
+- [NOTE] eval-judge baselines
+  - codex: accuracy 0.875, flip 0.0, label-A 0.5
+  - claude: accuracy 0.875, flip 0.0, label-A 0.5. Only miss: 06_near_identical
+  - opencode gpt-5-mini: accuracy 0.75, flip 0.125, label-A 0.438
+- [NOTE] CLAUDE.md-overlay A/B, real baseline, repeats=3: the mechanics worked, but the global ~/.claude/CLAUDE.md (TDD, TODO.md) masked the difference. All 6 runs wrote TODO.md and tests. This is why the docs recommend `clean` for controlled A/Bs.
+- [NOTE] A probe found no ~/AGENTS.md ancestor leak into clean codex or opencode.
+- [BLOCKED] Clean-claude verification needs `CLAUDE_CODE_OAUTH_TOKEN` (`claude setup-token`)
+- [NOTE] A tmux server started before an env var was set doesn't pass it to its sessions. Run arenas from a shell that has the provider keys.
 
-## Phase A2/A3: Typed core + new surface
-- [DONE] Single subprocess helper, Pydantic state, per-arena dir, flock store, flat modules
-- [DONE] Temp-index snapshot commits under refs/arena/
-- [DONE] 13 -> 7 core MCP tools (+ fork, refine), CLI/MCP parity test
-- [DONE] `agents-arena init`; removed install.py / project_scaffold / references / old evals
-- [DONE] Legacy state detection with cleanup instructions
-- [DONE] README, docs/design.md, skill, CHANGELOG
-- [DEBT] arena.py is ~350 LOC, above the <250 target. Remaining bulk is annotated parameter docs; splitting further would only shuffle code
+## Features
+- [DEFERRED] Task suites (multi-task scorecards)
+- [DEFERRED] Authenticated smoke-call preflight (preflight is static in v0.3)
+- [DEFERRED] Dollar cost for codex (it reports tokens only)
+- [DEFERRED] MCP background tasks: needs fastmcp tasks extra, async tools and client support
+- [DEFERRED] LayerFS backend. Revisit if it ships native macOS or a Python binding. Extract a backend protocol only then.
+- [TODO] Investigate the 06_near_identical miss in claude's eval-judge run, and whether the prompt should push harder toward "tie" for cosmetic-only differences
 
-## Phase B: Evidence-based judging
-- [DONE] Background jobs in MCP server; parallel variants
-- [DONE] Baseline checks; gate on regressions only
-- [DONE] Dedupe; protected paths; reward-hacking tripwires
-- [DONE] Blind A/B, both orders, isolated judge, strict schema
-- [DONE] claude runner and judge; same-family judge warning
-- [DONE] Copeland + deterministic tie-break; Elo removed
-- [DONE] Report, ledger
-- [DONE] Judge prompt as editable template (data/judge.md.tmpl, config override); brief template override
-- [DONE] Judge eval harness (`agents-arena eval-judge`, 8 bundled cases)
-- [DONE] MCP progress notifications (ctx.report_progress) for wait=True runs/judging
-- [DONE] Manual verification with claude: real 2-variant arena (claude runner + claude judge) ran open->run->check->judge; both variants passed vs baseline; judge returned schema-valid ties in both orders (patches differed only by a test name); same-family warning shown
-- [NOTE] eval-judge baseline 2026-10-27, claude (default model): accuracy 0.875, order-flip 0.0, tie 0.0, label-A 0.5, ~14s/call. Only miss: 06_near_identical (preferred `square(x)` over `square(value)` in both orders)
-- [TODO] Investigate 06_near_identical miss (now that reasons are saved) and decide whether the prompt should push harder toward "tie" for cosmetic-only differences
-- [DONE] Release: 0.2.0 bumped, branch pushed, PR opened, tag v0.2.0 pushed
-- [DEFERRED] MCP background tasks (task=True): needs fastmcp[tasks]/pydocket + async tools + client support
-
-## Phase C: Checkpoints + bounded search (opt-in)
-- [DONE] Numbered checkpoints, arena_fork with copy-on-write clone of ignored dirs
-- [DONE] Explore-then-fork (SWE-Replay)
-- [DONE] Distinguishing-test tie-break (S*)
-- [DONE] Depth-capped refinement round (DARS)
-- [DONE] Agentic read-only final judge
-- [DEFERRED] Experimental agent-session forks (verify codex/opencode resume semantics first)
-- [DEFERRED] Shared generated tests for voting (CodeMonkeys)
-- [DEFERRED] Bradley-Terry strategy priors once ledger has >= 30 arenas
+## Technical debt (from the final review)
+- [DEBT] No cleanup or prune of `refs/arena/*`, `.agents-arena/arenas/*` or empty worktree-root dirs
+- [DEBT] An arena with no jobs that died mid-run stays "running"
+- [DEBT] Dead code: `proc.kill_owned`, `git.delete_refs`, `git.worktree_prune`, `git.is_dirty`, `jobs.running`
+- [DEBT] `Spec.ship` is unused (arena_plan still asks a "ship" question)
+- [DEBT] `LEGACY_HINT` and `GITIGNORE` text in store.py is v0.1/v0.2-era (mentions `config.toml`)
+- [DEBT] Other invalid git ref names are still allowed (names ending in `.` or `.lock`)
+- [DEBT] Baseline setup uses the real env while per-run setup uses the clean env
+- [DEBT] eval-judge skips judge preflight
+- [DEBT] Ctrl-C during `start --wait` leaves the arena running
+- [DEBT] Agents can still create branches or stashes in the shared .git
 
 ## Tests
-- [TEST] Integration tests against real codex/opencode/claude (marker `integration`, AGENTS_ARENA_IT=1)
-- [TEST] `cp --reflink=auto` fork path on Linux (covered only once CI runs on ubuntu)
-
-## Deferred / Decisions
-- [DEFERRED] LayerFS backend. Revisit if it ships native macOS or a Python binding, or if >8 variants on Linux CI are needed. Extract a WorkspaceBackend Protocol only then.
-- [NOTE] Rejected for a single-user tool: Bradley-Terry CIs (always overlap at n<=5), Swiss/knockout (pointless at n<=5), full MCTS (needs value fn), LLM trajectory monitor (diff tripwires suffice), CLI framework dependency.
-- [NOTE] Edits to existing test files are `info`, not `needs_human`: test-first work legitimately edits tests. Skip markers, trivial asserts and test-config edits remain `needs_human`.
+- [TEST] Harness-level fakes for opencode `session export`
+- [TEST] Stale arena without jobs (see the debt item above)
+- [TEST] Judge cwd outside the repo (`tmp_path` can't prove it)
+- [TEST] Integration tests against real claude/codex/opencode (marker `integration`)
+- [TEST] `cp --reflink` path on Linux, covered only once CI runs on ubuntu
 
 ## Notes
 - [NOTE] Unsupported: Windows, network filesystems / iCloud dirs (flock), git submodules, Git LFS.
-- [NOTE] `--ignore-user-config` (codex judge) keeps auth but drops provider/model config; override the judge argv if needed.
-- [BLOCKED] Real codex verification: local codex-cli 0.133.0 fails to decode the server's model list, and its built-in default models are rejected for ChatGPT accounts. Update codex or set `[judge] model` / runner model, then rerun the manual arena + eval-judge with codex.
-- [NOTE] Even with `--ignore-user-config`, codex 0.133 still started user MCP servers (rmcp errors seen). Judge isolation from MCP servers is not guaranteed for codex; claude judge uses `--setting-sources "" --tools ""`.
+- [NOTE] Rejected for a single-user tool: Bradley-Terry CIs (always overlap at small n), Swiss/knockout, full MCTS, an LLM trajectory monitor (diff tripwires suffice), a CLI framework dependency, a command blocklist.
+- [NOTE] Edits to existing test files are `info`, not `needs_human`: test-first work legitimately edits tests.
+- [NOTE] eval-judge results are saved under `~/.cache/agents-arena/evals/`, not in the repo.
