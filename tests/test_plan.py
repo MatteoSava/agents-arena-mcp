@@ -45,7 +45,7 @@ def test_plan_modes_return_valid_draft(repo, monkeypatch):
     assert any(line.startswith("setup:") for line in auto["rationale"])
     interview = plan.make_plan(repo, "did my skill edit help?", "interview")
     ids = [q["id"] for q in interview["questions"]]
-    assert ids == ["compare", "objective", "baseline", "repeats", "checks", "setup", "judge", "ship"]
+    assert ids == ["compare", "objective", "baseline", "repeats", "checks", "setup", "judge"]
     assert interview["harnesses"]["claude"]["installed"] is True
     assert auto["detected_setup"] == ""
     assert any("same family" in line for line in auto["rationale"] if line.startswith("judge:"))

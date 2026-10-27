@@ -90,5 +90,8 @@ def main(argv: list[str] | None = None) -> int:
     except ArenaError as exc:
         print(json.dumps({"error": str(exc)}, indent=2), file=sys.stderr)
         return 2
+    except KeyboardInterrupt:  # the arena records itself as failed and its agents are killed
+        print(json.dumps({"error": "interrupted"}, indent=2), file=sys.stderr)
+        return 130
     print(json.dumps(result, indent=2, default=str))
     return 0

@@ -105,3 +105,12 @@ def test_repo_mcp_json_starts_a_working_server():
             return await asyncio.wait_for(c.list_tools(), timeout=60)
 
     assert "arena_plan" in {t.name for t in asyncio.run(go())}
+
+
+def test_cli_ctrl_c_exits_130_without_a_traceback(monkeypatch, capsys):
+    def interrupted(**kwargs):
+        raise KeyboardInterrupt
+
+    monkeypatch.setitem(cli.COMMANDS, "status", interrupted)
+    assert cli.main(["status"]) == 130
+    assert "interrupted" in json.loads(capsys.readouterr().err)["error"]

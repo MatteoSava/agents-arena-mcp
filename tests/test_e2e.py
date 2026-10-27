@@ -10,7 +10,7 @@ from agents_arena_mcp.server import make_mcp
 
 def test_full_flow_over_mcp(repo, fakes, monkeypatch):
     monkeypatch.setenv("FAKE_PLAN", json.dumps({"x": {"write": {"a.py": "# GOOD\n"}}, "y": {"write": {"a.py": "2\n"}}}))
-    spec = {"task": "t", "repeats": 2, "ship": True, "judge": command_judge(fakes),
+    spec = {"task": "t", "repeats": 2, "judge": command_judge(fakes),
             "contestants": [command_contestant(fakes, "x"), command_contestant(fakes, "y")]}  # fmt: skip
 
     async def go():

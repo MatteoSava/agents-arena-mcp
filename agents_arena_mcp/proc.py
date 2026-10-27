@@ -10,8 +10,9 @@ import time
 from dataclasses import dataclass
 from pathlib import Path
 
-# Live process groups, keyed by an owner tag (an arena id), so close() can kill stragglers.
+# Live process groups, keyed by an owner tag (an arena id), so cancel() can kill them.
 _live: dict[int, str] = {}
+_cancelled: set[str] = set()
 _live_lock = threading.Lock()
 
 
@@ -43,6 +44,8 @@ def run(
     env: dict[str, str] | None = None,
 ) -> ProcResult:
     """Run argv. Exit 126/127 or a missing executable is `error`; a timeout kills the whole group."""
+    if owner and owner in _cancelled:
+        return ProcResult("error", None, "", "cancelled", 0)
     started = time.monotonic()
     child_env = clean_env(env)
     child_env["PWD"] = str(cwd)  # tools like opencode resolve their project from $PWD, not getcwd()
@@ -60,6 +63,9 @@ def run(
         return ProcResult("error", None, "", str(exc), 0)
     with _live_lock:
         _live[proc.pid] = owner
+        cancelled = owner in _cancelled
+    if cancelled:  # cancel() ran while this process was starting
+        _kill_group(proc.pid)
     try:
         out, err = proc.communicate(timeout=timeout)
         code: int | None = proc.returncode
@@ -89,8 +95,10 @@ def shell(command: str, cwd: Path, timeout: int, *, owner: str = "") -> ProcResu
     return run(["sh", "-c", command], cwd, timeout, owner=owner)
 
 
-def kill_owned(owner: str) -> int:
+def cancel(owner: str) -> int:
+    """Kill every live process group of `owner` and refuse to start new ones for it."""
     with _live_lock:
+        _cancelled.add(owner)
         pids = [pid for pid, tag in _live.items() if tag == owner]
     for pid in pids:
         _kill_group(pid)

@@ -9,7 +9,7 @@ from pathlib import Path
 
 import pytest
 
-# Fake agent: writes files from FAKE_PLAN (JSON {"write": {path: text}, "delete": [path]}), echoes usage JSON.
+# Fake agent: writes files from FAKE_PLAN (JSON {"write": {path: text}, "delete": [path], "sleep": sec}), echoes usage JSON.
 FAKE_AGENT = textwrap.dedent(
     """
     import json, os, sys, time
@@ -17,7 +17,7 @@ FAKE_AGENT = textwrap.dedent(
     name = os.path.basename(os.path.dirname(workspace)).rsplit("-", 1)[0]
     plans = json.loads(os.environ.get("FAKE_PLAN", "{}"))
     plan = plans.get(name, {"write": {"app.py": f"def value():\\n    return '{name}'\\n"}})
-    time.sleep(float(os.environ.get("FAKE_SLEEP", "0")))
+    time.sleep(float(plan.get("sleep", os.environ.get("FAKE_SLEEP", "0"))))
     for rel, text in plan.get("write", {}).items():
         path = os.path.join(workspace, rel)
         os.makedirs(os.path.dirname(path) or ".", exist_ok=True)
@@ -50,6 +50,12 @@ FAKE_JUDGE = textwrap.dedent(
     open(out, "w").write(json.dumps(answer))
     """
 )
+
+
+@pytest.fixture(autouse=True)
+def isolated_cache(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Worktrees and eval results go under XDG_CACHE_HOME; never let a test touch the real ~/.cache."""
+    monkeypatch.setenv("XDG_CACHE_HOME", str(tmp_path / "cache"))
 
 
 def git(repo: Path, *args: str) -> str:

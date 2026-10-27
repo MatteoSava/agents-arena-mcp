@@ -18,6 +18,7 @@ from agents_arena_mcp.models import Arena, Contestant, Run, Spec
 from agents_arena_mcp.store import Store, utc_now, write_atomic
 
 Progress = Callable[[str], None]
+USER_REFS = ("refs/heads", "refs/tags", "refs/stash")  # where an agent in a worktree can leave refs
 
 
 def slugify(value: str, max_len: int = 32) -> str:
@@ -79,7 +80,8 @@ def run_one(store: Store, arena_id: str, run_id: str) -> None:
         env = adapter.clean_env(home) if home else None
         workspace.apply_overlays(ws, home, c.overlays)
         if spec.setup:
-            out = proc.run(["sh", "-c", spec.setup], ws, spec.check_timeout_sec, owner=arena_id, env=env)
+            # setup and checks are the spec author's commands: they run in your environment, like the baseline
+            out = proc.shell(spec.setup, ws, spec.check_timeout_sec, owner=arena_id)
             if not out.ok:
                 raise ArenaError(f"setup failed ({out.status}): {proc.tail(out.stdout + out.stderr, 800)}")
         base = workspace.overlay_base(arena, run, ws, any(o.scope == "repo" for o in c.overlays) or bool(spec.setup))
@@ -116,24 +118,41 @@ def run_one(store: Store, arena_id: str, run_id: str) -> None:
 
 
 def execute(store: Store, arena_id: str, progress: Progress) -> None:
+    arena = store.load(arena_id)
+    root = Path(arena.repo_root)
     try:
-        arena = store.load(arena_id)
         if arena.spec.checks or arena.spec.setup:
             progress("running baseline checks on the base commit")
             report = checks.baseline(arena)
             with store.mutate(arena_id) as a:
                 a.baseline = report
-        total = len(arena.runs)
+        total, refs_before = len(arena.runs), git.list_refs(root, *USER_REFS)
         with ThreadPoolExecutor(max_workers=arena.spec.max_parallel) as pool:
             futures = [pool.submit(run_one, store, arena_id, run_id) for run_id in arena.runs]
-            for done, future in enumerate(as_completed(futures), 1):
-                future.result()
-                progress(f"{done}/{total} runs finished")
-        finish(store, arena_id, progress)
-    except Exception as exc:
+            try:
+                for done, future in enumerate(as_completed(futures), 1):
+                    future.result()
+                    progress(f"{done}/{total} runs finished")
+            except KeyboardInterrupt:
+                proc.cancel(arena_id)  # agents run in their own process groups; Ctrl-C alone doesn't reach them
+                raise
         with store.mutate(arena_id) as a:
-            a.status, a.error, a.finished_at = "failed", f"{type(exc).__name__}: {exc}", utc_now()
+            a.new_refs = sorted(git.list_refs(root, *USER_REFS) - refs_before)
+        finish(store, arena_id, progress)
+    except KeyboardInterrupt:
+        proc.cancel(arena_id)
+        _fail(store, arena_id, "interrupted (Ctrl-C); running agents and judges were killed")
         raise
+    except Exception as exc:
+        _fail(store, arena_id, f"{type(exc).__name__}: {exc}")
+        raise
+    finally:
+        workspace.remove_root(arena)
+
+
+def _fail(store: Store, arena_id: str, error: str) -> None:
+    with store.mutate(arena_id) as a:
+        a.status, a.error, a.finished_at = "failed", error, utc_now()
 
 
 def finish(store: Store, arena_id: str, progress: Progress) -> None:

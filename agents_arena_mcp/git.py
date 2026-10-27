@@ -42,11 +42,6 @@ def rev_parse(cwd: Path, ref: str) -> str:
     return text(cwd, "rev-parse", "--verify", f"{ref}^{{commit}}")
 
 
-def is_dirty(root: Path) -> bool:
-    status = text(root, "status", "--porcelain", "--", ".", f":(exclude){STATE_DIR}")
-    return bool(status)
-
-
 # Artifacts produced by running tools are never part of a contestant's change.
 ARTIFACT_EXCLUDES = [
     ":(exclude,glob)**/__pycache__/**",
@@ -79,10 +74,8 @@ def update_ref(root: Path, ref: str, commit: str) -> None:
     git(root, "update-ref", ref, commit)
 
 
-def delete_refs(root: Path, prefix: str) -> None:
-    refs = text(root, "for-each-ref", "--format=%(refname)", prefix).splitlines()
-    for ref in refs:
-        git(root, "update-ref", "-d", ref)
+def list_refs(root: Path, *prefixes: str) -> set[str]:
+    return set(text(root, "for-each-ref", "--format=%(refname)", *prefixes).splitlines())
 
 
 def worktree_add(root: Path, path: Path, commit: str) -> None:
@@ -93,10 +86,6 @@ def worktree_add(root: Path, path: Path, commit: str) -> None:
 def worktree_remove(root: Path, path: Path) -> None:
     git(root, "worktree", "remove", "--force", str(path), check=False)
     shutil.rmtree(path, ignore_errors=True)
-
-
-def worktree_prune(root: Path) -> None:
-    git(root, "worktree", "prune", check=False)
 
 
 def changed_files(cwd: Path, base: str, head: str) -> list[FileChange]:

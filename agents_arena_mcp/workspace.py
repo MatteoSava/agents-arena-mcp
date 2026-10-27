@@ -94,6 +94,18 @@ def _normalize(patch: bytes) -> bytes:
     return b"\n".join(keep)
 
 
+def remove_root(arena: Arena) -> None:
+    """Drop the arena's worktree dir, and the per-repo dir above it, once they are empty."""
+    root = Path(arena.worktree_root)
+    for path in (root, root.parent):
+        try:
+            path.rmdir()
+        except FileNotFoundError:
+            continue
+        except OSError:  # not empty: another arena of this repo is still using it
+            return
+
+
 def destroy(arena: Arena, run: Run) -> None:
     """Remove the worktree and the run's home, which may hold a copied auth file."""
     if run.workspace:

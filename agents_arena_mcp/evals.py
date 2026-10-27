@@ -17,7 +17,9 @@ from importlib import resources
 from pathlib import Path
 from typing import Any
 
+from agents_arena_mcp import harness as harnesses
 from agents_arena_mcp import pipeline
+from agents_arena_mcp.errors import ArenaError
 from agents_arena_mcp.judge import judge_order, pair_winner
 from agents_arena_mcp.models import JudgeSpec, Spec
 from agents_arena_mcp.store import Store, utc_now
@@ -77,6 +79,9 @@ def _run_case(case: dict[str, Any], judge: dict[str, Any]) -> dict[str, Any]:
 
 def eval_judge(harness: str, model: str, argv: list[str] | None = None) -> dict[str, Any]:
     judge = {"harness": harness, "model": model, "argv": argv or []}
+    problems = harnesses.get(harness).judge_preflight(JudgeSpec.model_validate(judge))
+    if problems:
+        raise ArenaError("Judge preflight failed:\n- " + "\n- ".join(problems))
     results = [_run_case(c, judge) for c in cases()]
     n, labels = len(results) or 1, [label for r in results for label in r["labels"]]
     metrics = {"judge": f"{harness}:{model or 'default'}", "cases": len(results),
