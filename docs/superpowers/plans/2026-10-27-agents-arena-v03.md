@@ -120,7 +120,12 @@ def test_overlay_targets_must_be_scoped():
 def test_home_overlays_require_clean_baseline():
     with pytest.raises(ValidationError, match="home: overlays need baseline='clean'"):
         Contestant.model_validate(
-            {"name": "a", "harness": "codex", "baseline": "real", "overlays": [{"from": "/x", "to": "home:.codex/skills/s"}]}
+            {
+                "name": "a",
+                "harness": "codex",
+                "baseline": "real",
+                "overlays": [{"from": "/x", "to": "home:.codex/skills/s"}],
+            }
         )
 
 
@@ -516,7 +521,12 @@ def fakes(tmp_path: Path) -> dict[str, Path]:
 
 
 def command_contestant(fakes: dict[str, Path], name: str, **kw) -> dict:
-    return {"name": name, "harness": "command", "argv": [sys.executable, str(fakes["agent"]), "{workspace}", "{run_dir}"], **kw}
+    return {
+        "name": name,
+        "harness": "command",
+        "argv": [sys.executable, str(fakes["agent"]), "{workspace}", "{run_dir}"],
+        **kw,
+    }
 
 
 def command_judge(fakes: dict[str, Path]) -> dict:
@@ -587,7 +597,9 @@ def test_agent_argv_shapes():
     assert codex[:2] == ["codex", "exec"] and codex[-1] == "P" and "--model" not in codex
     oc = harness.get("opencode").agent_argv(c(harness="opencode", model="openrouter/x"), "P", Path("/r"), Path("/w"))
     assert "--standalone" in oc and oc[oc.index("-m") + 1] == "openrouter/x"
-    cmd = harness.get("command").agent_argv(c(harness="command", argv=["run", "{workspace}", "{prompt}"]), "P", Path("/r"), Path("/w"))
+    cmd = harness.get("command").agent_argv(
+        c(harness="command", argv=["run", "{workspace}", "{prompt}"]), "P", Path("/r"), Path("/w")
+    )
     assert cmd == ["run", "/w", "P"]
 
 
@@ -597,10 +609,29 @@ def test_opencode_requires_model(monkeypatch):
 
 
 def test_metrics_parsing():
-    claude_out = json.dumps({"type": "result", "usage": {"input_tokens": 5, "cache_read_input_tokens": 100, "cache_creation_input_tokens": 10, "output_tokens": 7}, "total_cost_usd": 0.02, "num_turns": 3})
+    claude_out = json.dumps(
+        {
+            "type": "result",
+            "usage": {
+                "input_tokens": 5,
+                "cache_read_input_tokens": 100,
+                "cache_creation_input_tokens": 10,
+                "output_tokens": 7,
+            },
+            "total_cost_usd": 0.02,
+            "num_turns": 3,
+        }
+    )
     m = harness.get("claude").metrics(claude_out, cwd=Path("."), env=None)
     assert (m.input_tokens, m.output_tokens, m.cost_usd, m.turns) == (115, 7, 0.02, 3)
-    codex_out = "\n".join(json.dumps(e) for e in [{"type": "thread.started"}, {"type": "turn.completed", "usage": {"input_tokens": 50, "output_tokens": 4}}, {"type": "turn.completed", "usage": {"input_tokens": 10, "output_tokens": 1}}])
+    codex_out = "\n".join(
+        json.dumps(e)
+        for e in [
+            {"type": "thread.started"},
+            {"type": "turn.completed", "usage": {"input_tokens": 50, "output_tokens": 4}},
+            {"type": "turn.completed", "usage": {"input_tokens": 10, "output_tokens": 1}},
+        ]
+    )
     m = harness.get("codex").metrics(codex_out, cwd=Path("."), env=None)
     assert (m.input_tokens, m.output_tokens, m.cost_usd, m.turns) == (60, 5, None, 2)
 
@@ -610,11 +641,16 @@ def test_opencode_metrics_come_from_session_export(monkeypatch):
 
     def fake_run(argv, cwd, timeout, **kw):
         calls.append(argv)
-        info = {"info": {"tokens": {"input": 80, "output": 9, "cache": {"read": 20, "write": 0}}, "cost": 0.003}, "messages": []}
+        info = {
+            "info": {"tokens": {"input": 80, "output": 9, "cache": {"read": 20, "write": 0}}, "cost": 0.003},
+            "messages": [],
+        }
         return harness.proc.ProcResult("passed", 0, json.dumps(info), "", 5)
 
     monkeypatch.setattr(harness.proc, "run", fake_run)
-    stdout = "\n".join(json.dumps(e) for e in [{"type": "step_start", "sessionID": "ses_1"}, {"type": "text", "sessionID": "ses_1"}])
+    stdout = "\n".join(
+        json.dumps(e) for e in [{"type": "step_start", "sessionID": "ses_1"}, {"type": "text", "sessionID": "ses_1"}]
+    )
     m = harness.get("opencode").metrics(stdout, cwd=Path("."), env=None)
     assert calls[0][:4] == ["opencode", "session", "export", "ses_1"]
     assert (m.input_tokens, m.output_tokens, m.cost_usd, m.turns) == (100, 9, 0.003, 1)
@@ -769,7 +805,9 @@ class Claude(Adapter):
         if result is None:
             return Metrics()
         u = result["usage"]
-        tokens_in = sum(int(u.get(k) or 0) for k in ("input_tokens", "cache_read_input_tokens", "cache_creation_input_tokens"))
+        tokens_in = sum(
+            int(u.get(k) or 0) for k in ("input_tokens", "cache_read_input_tokens", "cache_creation_input_tokens")
+        )
         return Metrics(
             input_tokens=tokens_in,
             output_tokens=int(u.get("output_tokens") or 0),
@@ -803,7 +841,11 @@ class Codex(Adapter):
 
     def preflight(self, c):
         problems = super().preflight(c)
-        if c.baseline == "clean" and not (Path.home() / ".codex" / "auth.json").exists() and not os.environ.get("OPENAI_API_KEY"):
+        if (
+            c.baseline == "clean"
+            and not (Path.home() / ".codex" / "auth.json").exists()
+            and not os.environ.get("OPENAI_API_KEY")
+        ):
             problems.append("clean codex needs ~/.codex/auth.json (run `codex login`) or OPENAI_API_KEY")
         return problems
 
@@ -925,7 +967,14 @@ from agents_arena_mcp.store import Store
 def make_arena(repo: Path, tmp_path: Path) -> Arena:
     base = git(repo, "rev-parse", "HEAD").strip()
     spec = Spec.model_validate({"task": "t", "contestants": [{"name": "a", "harness": "claude"}]})
-    return Arena(id="arena1", spec=spec, repo_root=str(repo), base_commit=base, worktree_root=str(tmp_path / "wt"), created_at="now")
+    return Arena(
+        id="arena1",
+        spec=spec,
+        repo_root=str(repo),
+        base_commit=base,
+        worktree_root=str(tmp_path / "wt"),
+        created_at="now",
+    )
 
 
 def test_overlays_land_in_repo_and_home_and_are_not_counted(repo, tmp_path):
@@ -936,8 +985,14 @@ def test_overlays_land_in_repo_and_home_and_are_not_counted(repo, tmp_path):
     (src / "SKILL.md").write_text("v2\n")
     ws = workspace.create(arena, run)
     home = workspace.home_dir(arena, run)
-    workspace.apply_overlays(ws, home, [Overlay.model_validate({"from": str(src), "to": "repo:.claude/skills/foo"}),
-                                        Overlay.model_validate({"from": str(src / "SKILL.md"), "to": "home:.codex/skills/s/SKILL.md"})])
+    workspace.apply_overlays(
+        ws,
+        home,
+        [
+            Overlay.model_validate({"from": str(src), "to": "repo:.claude/skills/foo"}),
+            Overlay.model_validate({"from": str(src / "SKILL.md"), "to": "home:.codex/skills/s/SKILL.md"}),
+        ],
+    )
     assert (ws / ".claude/skills/foo/SKILL.md").read_text() == "v2\n"
     assert (home / ".codex/skills/s/SKILL.md").exists()
     run.base_commit = workspace.overlay_base(arena, run, ws, has_repo_overlays=True)
@@ -1124,23 +1179,40 @@ def test_gates(tmp_path):
     assert ("agent_config_edited", "needs_human") in kinds(checks.gates(skill, None))
     nested = run_with([FileChange(path="pkg/AGENTS.md", status="M")], tmp_path=tmp_path)
     assert ("agent_config_edited", "needs_human") in kinds(checks.gates(nested, None))
-    skip = run_with([FileChange(path="tests/test_x.py", status="A")], "+@pytest.mark.skip\n+def test_x(): pass\n", tmp_path=tmp_path)
+    skip = run_with(
+        [FileChange(path="tests/test_x.py", status="A")], "+@pytest.mark.skip\n+def test_x(): pass\n", tmp_path=tmp_path
+    )
     assert ("skip_marker_added", "needs_human") in kinds(checks.gates(skip, None))
 
 
 def test_regressions_vs_baseline(tmp_path):
-    base = CheckReport(commit="b", results=[CheckResult(name="t", cmd="x", status="passed", duration_ms=1),
-                                             CheckResult(name="l", cmd="y", status="failed", duration_ms=1)])
-    mine = CheckReport(commit="c", results=[CheckResult(name="t", cmd="x", status="failed", duration_ms=1),
-                                             CheckResult(name="l", cmd="y", status="failed", duration_ms=1)])
+    base = CheckReport(
+        commit="b",
+        results=[
+            CheckResult(name="t", cmd="x", status="passed", duration_ms=1),
+            CheckResult(name="l", cmd="y", status="failed", duration_ms=1),
+        ],
+    )
+    mine = CheckReport(
+        commit="c",
+        results=[
+            CheckResult(name="t", cmd="x", status="failed", duration_ms=1),
+            CheckResult(name="l", cmd="y", status="failed", duration_ms=1),
+        ],
+    )
     run = run_with([FileChange(path="app.py", status="M")], checks_report=mine, tmp_path=tmp_path)
     got = kinds(checks.gates(run, base))
     assert ("check_regression", "disqualify") in got and ("check_failing_on_base_too", "info") in got
 
 
 def test_run_checks_records_missing_tool_and_timeout(tmp_path):
-    report = checks.run_checks([Check(name="missing", cmd="definitely-not-a-tool-xyz"), Check(name="slow", cmd="sleep 5")],
-                               tmp_path, "c", timeout=1, owner="t")
+    report = checks.run_checks(
+        [Check(name="missing", cmd="definitely-not-a-tool-xyz"), Check(name="slow", cmd="sleep 5")],
+        tmp_path,
+        "c",
+        timeout=1,
+        owner="t",
+    )
     assert [r.status for r in report.results] == ["error", "timeout"]
 ```
 
@@ -1170,8 +1242,12 @@ AGENT_CONFIG_FILES = ("AGENTS.md", "CLAUDE.md")
 SECRET = (r"(^|/)\.env($|\.)", r"(^|/)secrets?(/|\.[a-z0-9]+$|$)", r"(^|/)credentials?(/|\.[a-z0-9]+$|$)",
           r"private[_-]?key", r"(^|/)id_(rsa|ed25519)")  # fmt: skip
 TEST_PATH = re.compile(r"(^|/)(tests?|__tests__|spec)/|(^|/)test_[^/]+\.py$|_test\.(py|go)$|\.(test|spec)\.[jt]sx?$")
-TEST_CONFIG = re.compile(r"(^|/)(conftest\.py|pytest\.ini|tox\.ini|setup\.cfg|jest\.config\.[a-z]+|vitest\.config\.[a-z]+)$")
-SKIP_MARKER = re.compile(r"@pytest\.mark\.(skip|xfail)|pytest\.skip\(|@unittest\.skip|\b(it|test|describe)\.skip\(|\bxit\(|t\.Skip\(")
+TEST_CONFIG = re.compile(
+    r"(^|/)(conftest\.py|pytest\.ini|tox\.ini|setup\.cfg|jest\.config\.[a-z]+|vitest\.config\.[a-z]+)$"
+)
+SKIP_MARKER = re.compile(
+    r"@pytest\.mark\.(skip|xfail)|pytest\.skip\(|@unittest\.skip|\b(it|test|describe)\.skip\(|\bxit\(|t\.Skip\("
+)
 TRIVIAL_ASSERT = re.compile(r"^\s*assert\s+(True|1)\s*$|expect\(true\)\.toBe\(true\)")
 
 
@@ -1313,7 +1389,9 @@ def test_runs_every_contestant_times_repeats_and_cleans_up(repo, fakes):
 def test_clean_baseline_gets_its_own_home(repo, fakes, tmp_path, monkeypatch):
     monkeypatch.setenv("HOME", str(tmp_path / "realhome"))
     store = Store(repo)
-    s = spec(fakes, repeats=1, contestants=[command_contestant(fakes, "a", baseline="clean"), command_contestant(fakes, "b")])
+    s = spec(
+        fakes, repeats=1, contestants=[command_contestant(fakes, "a", baseline="clean"), command_contestant(fakes, "b")]
+    )
     arena = pipeline.create(store, s)
     pipeline.execute(store, arena.id, progress=lambda m: None)
     runs = store.load(arena.id).runs
@@ -1324,7 +1402,10 @@ def test_clean_baseline_gets_its_own_home(repo, fakes, tmp_path, monkeypatch):
 
 
 def test_checks_baseline_and_regression_gate(repo, fakes, monkeypatch):
-    plans = {"a": {"write": {"app.py": "def value():\n    return 2\n"}}, "b": {"write": {"app.py": "this is not python\n"}}}
+    plans = {
+        "a": {"write": {"app.py": "def value():\n    return 2\n"}},
+        "b": {"write": {"app.py": "this is not python\n"}},
+    }
     monkeypatch.setenv("FAKE_PLAN", json.dumps(plans))
     s = spec(fakes, repeats=1, checks=[{"name": "imports", "cmd": f"{sys.executable} -c 'import app'"}])
     store = Store(repo)
@@ -1460,7 +1541,9 @@ def run_one(store: Store, arena_id: str, run_id: str) -> None:
             r.exit_status, r.metrics = out.status, metrics
             r.snapshot = workspace.snapshot(store, a, r, ws)
             snap_commit = r.snapshot.commit
-        report = checks.run_checks(spec.checks, ws, snap_commit, spec.check_timeout_sec, arena_id) if spec.checks else None
+        report = (
+            checks.run_checks(spec.checks, ws, snap_commit, spec.check_timeout_sec, arena_id) if spec.checks else None
+        )
         with store.mutate(arena_id) as a:
             r = a.runs[run_id]
             r.checks = report
@@ -1608,7 +1691,9 @@ def run_arena(repo, fakes, monkeypatch, plans, **kw):
 
 
 def test_rubric_scores_each_eligible_run_blind(repo, fakes, monkeypatch):
-    store, aid = run_arena(repo, fakes, monkeypatch, {"x": {"write": {"a.py": "# GOOD\n"}}, "y": {"write": {"a.py": "# meh\n"}}})
+    store, aid = run_arena(
+        repo, fakes, monkeypatch, {"x": {"write": {"a.py": "# GOOD\n"}}, "y": {"write": {"a.py": "# meh\n"}}}
+    )
     judge.score_runs(store, aid, progress=lambda m: None)
     runs = store.load(aid).runs
     assert runs["x-1"].score.score == 9 and runs["y-1"].score.score == 5
@@ -1617,7 +1702,9 @@ def test_rubric_scores_each_eligible_run_blind(repo, fakes, monkeypatch):
 
 
 def test_final_judges_best_runs_in_both_orders(repo, fakes, monkeypatch):
-    store, aid = run_arena(repo, fakes, monkeypatch, {"x": {"write": {"a.py": "# GOOD\n"}}, "y": {"write": {"a.py": "# meh\n"}}})
+    store, aid = run_arena(
+        repo, fakes, monkeypatch, {"x": {"write": {"a.py": "# GOOD\n"}}, "y": {"write": {"a.py": "# meh\n"}}}
+    )
     judge.score_runs(store, aid, progress=lambda m: None)
     judge.run_finals(store, aid, progress=lambda m: None)
     finals = store.load(aid).finals
@@ -1640,8 +1727,14 @@ def test_unusable_judge_output_is_recorded(repo, fakes, monkeypatch):
     assert run.score is None and "no usable JSON" in run.error
 
 
-@pytest.mark.parametrize(("text", "expected"), [('{"winner": "A"}', "A"), ('```json\n{"winner": "B"}\n```', "B"),
-                                                (json.dumps({"structured_output": {"winner": "tie"}}), "tie")])
+@pytest.mark.parametrize(
+    ("text", "expected"),
+    [
+        ('{"winner": "A"}', "A"),
+        ('```json\n{"winner": "B"}\n```', "B"),
+        (json.dumps({"structured_output": {"winner": "tie"}}), "tie"),
+    ],
+)
 def test_extract_json(text, expected):
     assert judge.extract_json(text, "winner")["winner"] == expected
 
@@ -1691,7 +1784,11 @@ def rubric_text(objective: str) -> str:
 
 def evidence(run: Run, base: CheckReport | None) -> str:
     """What a judge may know: checks vs baseline, flags, size. Nothing identifying the contestant."""
-    lines = [f"- Files changed: {len(run.snapshot.files)}, lines changed: {run.snapshot.lines_changed}"] if run.snapshot else []
+    lines = (
+        [f"- Files changed: {len(run.snapshot.files)}, lines changed: {run.snapshot.lines_changed}"]
+        if run.snapshot
+        else []
+    )
     for r in run.checks.results if run.checks else []:
         before = base.status_of(r.name) if base else None
         lines.append(f"- Check `{r.name}`: {r.status}" + (f" (on base: {before})" if before else ""))
@@ -1779,7 +1876,9 @@ def score_runs(store: Store, arena_id: str, progress: Callable[[str], None]) -> 
     arena = store.load(arena_id)
     todo = [r for r in arena.runs.values() if r.eligible and r.score is None]
     with ThreadPoolExecutor(max_workers=arena.spec.max_parallel) as pool:
-        for i, (run, (score, error)) in enumerate(zip(todo, pool.map(lambda r: score_one(store, arena, r), todo), strict=True), 1):
+        for i, (run, (score, error)) in enumerate(
+            zip(todo, pool.map(lambda r: score_one(store, arena, r), todo), strict=True), 1
+        ):
             with store.mutate(arena_id) as a:
                 a.runs[run.id].score = score
                 if error:
@@ -1804,7 +1903,9 @@ def judge_order(store: Store, arena: Arena, first: Run, second: Run) -> Match:
     try:
         verdict = Verdict.model_validate(parsed) if parsed else Verdict(winner="tie", confidence=0.0, reasons=[error])
     except ValidationError as exc:
-        verdict = Verdict(winner="tie", confidence=0.0, reasons=[f"final output failed validation: {exc.errors()[0]['msg']}"])
+        verdict = Verdict(
+            winner="tie", confidence=0.0, reasons=[f"final output failed validation: {exc.errors()[0]['msg']}"]
+        )
     return Match(first=first.id, second=second.id, verdict=verdict, run_dir=str(run_dir))
 
 
@@ -1865,7 +1966,9 @@ def arena_done(repo, fakes, monkeypatch, plans, **kw):
 
 
 def test_quality_winner_from_final_and_medians(repo, fakes, monkeypatch):
-    store, arena = arena_done(repo, fakes, monkeypatch, {"x": {"write": {"a.py": "# GOOD\n"}}, "y": {"write": {"a.py": "# meh\n"}}})
+    store, arena = arena_done(
+        repo, fakes, monkeypatch, {"x": {"write": {"a.py": "# GOOD\n"}}, "y": {"write": {"a.py": "# meh\n"}}}
+    )
     card = arena.scorecard
     assert card.winner == "x" and "both orders" in card.verdict
     x = next(s for s in card.stats if s.name == "x")
@@ -1876,27 +1979,39 @@ def test_quality_winner_from_final_and_medians(repo, fakes, monkeypatch):
 
 
 def test_metric_objective_needs_no_judge(repo, fakes, monkeypatch):
-    store, arena = arena_done(repo, fakes, monkeypatch, {"x": {"write": {"a.py": "1\n"}}, "y": {"write": {"a.py": "2\n"}}},
-                              objective="tokens", judge={"harness": "none"})
+    store, arena = arena_done(
+        repo,
+        fakes,
+        monkeypatch,
+        {"x": {"write": {"a.py": "1\n"}}, "y": {"write": {"a.py": "2\n"}}},
+        objective="tokens",
+        judge={"harness": "none"},
+    )
     assert arena.finals == [] and all(r.score is None for r in arena.runs.values())
     assert arena.scorecard.winner in {"x", "y"} and "tokens" in arena.scorecard.verdict
     assert arena.scorecard.winner_run is not None  # metric winners can be promoted too
 
 
 def test_no_eligible_runs(repo, fakes, monkeypatch):
-    store, arena = arena_done(repo, fakes, monkeypatch, {"x": {"delete": ["tests/test_app.py"]}}, judge={"harness": "none"})
+    store, arena = arena_done(
+        repo, fakes, monkeypatch, {"x": {"delete": ["tests/test_app.py"]}}, judge={"harness": "none"}
+    )
     assert arena.scorecard.winner is None and "no contestant" in arena.scorecard.verdict
 
 
 def test_html_report_is_self_contained(repo, fakes, monkeypatch):
-    store, arena = arena_done(repo, fakes, monkeypatch, {"x": {"write": {"a.py": "# GOOD\n"}}, "y": {"write": {"a.py": "2\n"}}})
+    store, arena = arena_done(
+        repo, fakes, monkeypatch, {"x": {"write": {"a.py": "# GOOD\n"}}, "y": {"write": {"a.py": "2\n"}}}
+    )
     html = scorecard.render_html(arena)
     assert html.startswith("<!doctype html>") and "<table" in html and ">x<" in html
     assert "<link" not in html and "<script src" not in html  # self-contained
 
 
 def test_promote_branch_and_apply(repo, fakes, monkeypatch):
-    store, arena = arena_done(repo, fakes, monkeypatch, {"x": {"write": {"new.py": "# GOOD\n"}}, "y": {"write": {"a.py": "2\n"}}})
+    store, arena = arena_done(
+        repo, fakes, monkeypatch, {"x": {"write": {"new.py": "# GOOD\n"}}, "y": {"write": {"a.py": "2\n"}}}
+    )
     out = pipeline.promote(store, arena.id, "branch")
     assert git(repo, "show", f"{out['branch']}:new.py") == "# GOOD\n"
     assert git(repo, "rev-parse", "--abbrev-ref", "HEAD").strip() == "main"
@@ -1909,14 +2024,15 @@ def test_promote_branch_and_apply(repo, fakes, monkeypatch):
 - [ ] **Step 3: Store history.** In `agents_arena_mcp/store.py`, replace the `ledger` method with:
 
 ```python
-    def history(self, record: dict[str, Any]) -> None:
-        append_jsonl(self.root / "history.jsonl", {"at": utc_now(), **record})
+def history(self, record: dict[str, Any]) -> None:
+    append_jsonl(self.root / "history.jsonl", {"at": utc_now(), **record})
 
-    def read_history(self) -> list[dict[str, Any]]:
-        path = self.root / "history.jsonl"
-        if not path.exists():
-            return []
-        return [json.loads(line) for line in path.read_text(encoding="utf-8").splitlines() if line.strip()]
+
+def read_history(self) -> list[dict[str, Any]]:
+    path = self.root / "history.jsonl"
+    if not path.exists():
+        return []
+    return [json.loads(line) for line in path.read_text(encoding="utf-8").splitlines() if line.strip()]
 ```
 
 Also change the `current_id` error message to `"No arena yet. Plan one with arena_plan, then arena_start."`, and make `load` reject arenas written by v0.2:
@@ -1981,13 +2097,17 @@ def build(arena: Arena) -> Scorecard:
         notes.append("cost is only shown for harnesses that report it (codex reports tokens, not dollars)")
     alive = [s for s in stats if s.eligible]
     if not alive:
-        return Scorecard(objective=spec.objective, stats=stats, verdict="no contestant produced an eligible run", notes=notes)
+        return Scorecard(
+            objective=spec.objective, stats=stats, verdict="no contestant produced an eligible run", notes=notes
+        )
     if spec.objective in METRIC_OBJECTIVES:
         field = METRIC_FIELD[spec.objective]
         ranked = sorted(alive, key=lambda s: (getattr(s, field) is None, getattr(s, field) or 0, -s.pass_rate))
         best = ranked[0]
         if getattr(best, field) is None:
-            return Scorecard(objective=spec.objective, stats=stats, verdict=f"no {spec.objective} data reported", notes=notes)
+            return Scorecard(
+                objective=spec.objective, stats=stats, verdict=f"no {spec.objective} data reported", notes=notes
+            )
         verdict = f"{best.name} is best on {spec.objective}: median {getattr(best, field):g}"
         if len(ranked) > 1 and getattr(ranked[1], field) is not None:
             verdict += f" vs {getattr(ranked[1], field):g} for {ranked[1].name}"
@@ -2005,7 +2125,9 @@ def _best_metric_run(arena: Arena, name: str, objective: str) -> str | None:
     return min(pool, key=value).id if pool else None  # type: ignore[arg-type]
 
 
-def _judged_winner(arena: Arena, stats: list[ContestantStats], alive: list[ContestantStats], notes: list[str]) -> Scorecard:
+def _judged_winner(
+    arena: Arena, stats: list[ContestantStats], alive: list[ContestantStats], notes: list[str]
+) -> Scorecard:
     spec = arena.spec
     wins = Counter[str]()
     by_run = {r.id: r.contestant for r in arena.runs.values()}
@@ -2018,8 +2140,17 @@ def _judged_winner(arena: Arena, stats: list[ContestantStats], alive: list[Conte
     ranked = sorted(alive, key=lambda s: (-wins[s.name], -(s.median_score or -1), -s.pass_rate))
     best = ranked[0]
     second = ranked[1] if len(ranked) > 1 else None
-    if second and (wins[best.name], best.median_score, best.pass_rate) == (wins[second.name], second.median_score, second.pass_rate):
-        return Scorecard(objective=spec.objective, stats=stats, verdict=f"tie between {best.name} and {second.name}: your call", notes=notes)
+    if second and (wins[best.name], best.median_score, best.pass_rate) == (
+        wins[second.name],
+        second.median_score,
+        second.pass_rate,
+    ):
+        return Scorecard(
+            objective=spec.objective,
+            stats=stats,
+            verdict=f"tie between {best.name} and {second.name}: your call",
+            notes=notes,
+        )
     label = spec.objective if spec.objective in ("quality", "elegance") else "rubric"
     decided = "won the final in both orders" if wins[best.name] else f"highest median {label} score"
     run = best_run(arena, best.name)
@@ -2068,8 +2199,12 @@ def render_html(arena: Arena) -> str:
             for n, v in values
         )  # fmt: skip
         charts.append(f'<div class="mini"><h3>{title}</h3>{bars}</div>')
-    legend = "".join(f'<span><i style="background:{color[s.name]}"></i>{html.escape(s.name)}</span>' for s in card.stats)
-    head = "<tr><td>contestant</td><td>runs</td>" + "".join(f"<td>{t}</td>" for t, _, _ in COLUMNS) + "<td>flags</td></tr>"
+    legend = "".join(
+        f'<span><i style="background:{color[s.name]}"></i>{html.escape(s.name)}</span>' for s in card.stats
+    )
+    head = (
+        "<tr><td>contestant</td><td>runs</td>" + "".join(f"<td>{t}</td>" for t, _, _ in COLUMNS) + "<td>flags</td></tr>"
+    )
     rows = head + "".join(
         f"<tr><td>{html.escape(s.name)}</td><td>{s.runs}</td>"
         + "".join(f"<td>{_fmt(getattr(s, f), k)}</td>" for _, f, k in COLUMNS)
@@ -2130,7 +2265,10 @@ def promote(store: Store, arena_id: str | None, mode: str) -> dict:
     assert run.snapshot is not None
     patch = store.arena_dir(arena.id) / "winner.diff"
     shutil.copyfile(run.snapshot.patch_path, patch)
-    root, result = Path(arena.repo_root), {"arena_id": arena.id, "winner": card.winner, "run": run.id, "patch": str(patch)}
+    root, result = (
+        Path(arena.repo_root),
+        {"arena_id": arena.id, "winner": card.winner, "run": run.id, "patch": str(patch)},
+    )
     if mode == "branch":
         branch = f"arena/{arena.id}-{card.winner}"
         if git.git(root, "rev-parse", "--verify", "--quiet", f"refs/heads/{branch}", check=False):
@@ -2302,7 +2440,9 @@ def make_plan(root: Path, request: str, mode: str) -> dict[str, Any]:
                            "harnesses": status, "spec_schema": Spec.model_json_schema(by_alias=True)}  # fmt: skip
     if mode == "interview":
         out["questions"] = questions(checks, status)
-        out["next"] = "Ask the user these questions (one at a time), update draft_spec, show it, then call arena_start(spec)."
+        out["next"] = (
+            "Ask the user these questions (one at a time), update draft_spec, show it, then call arena_start(spec)."
+        )
     else:
         out["rationale"] = [
             f"contestants: one per installed harness ({', '.join(installed)}); replace with the comparison the user asked for",
@@ -2355,7 +2495,13 @@ def tools():
 
 def test_five_tools_with_described_params_and_guide():
     listed, guide = tools()
-    assert sorted(t.name for t in listed) == ["arena_history", "arena_plan", "arena_result", "arena_start", "arena_status"]
+    assert sorted(t.name for t in listed) == [
+        "arena_history",
+        "arena_plan",
+        "arena_result",
+        "arena_start",
+        "arena_status",
+    ]
     for t in listed:
         assert t.description
         for name, prop in t.inputSchema.get("properties", {}).items():
@@ -2376,7 +2522,11 @@ def test_cli_and_mcp_parity():
 def test_cli_plan_start_result(repo, fakes, tmp_path, capsys):
     assert cli.main(["plan", "x vs y", "--mode", "autopilot"]) == 0
     assert "draft_spec" in json.loads(capsys.readouterr().out)
-    spec = {"task": "t", "judge": command_judge(fakes), "contestants": [command_contestant(fakes, "x"), command_contestant(fakes, "y")]}
+    spec = {
+        "task": "t",
+        "judge": command_judge(fakes),
+        "contestants": [command_contestant(fakes, "x"), command_contestant(fakes, "y")],
+    }
     path = tmp_path / "spec.json"
     path.write_text(json.dumps(spec))
     assert cli.main(["start", str(path)]) == 0
@@ -2455,7 +2605,10 @@ def store() -> Store:
 
 def arena_plan(
     request: Annotated[str, Field(description="What the user wants to compare or find, in their words.")],
-    mode: Annotated[Literal["interview", "autopilot"], Field(description="interview: return questions to ask the user; autopilot: return a filled draft to adapt.")] = "interview",  # noqa: E501
+    mode: Annotated[
+        Literal["interview", "autopilot"],
+        Field(description="interview: return questions to ask the user; autopilot: return a filled draft to adapt."),
+    ] = "interview",  # noqa: E501
 ) -> dict[str, Any]:
     """Draft an arena spec: detected checks, installed harnesses, and questions (interview) or a full draft (autopilot). Runs nothing."""  # noqa: E501
     return plan.make_plan(store().repo_root, request, mode)
@@ -2463,7 +2616,9 @@ def arena_plan(
 
 def arena_start(
     spec: Annotated[dict[str, Any], Field(description="The arena spec (see arena_plan's draft_spec and spec_schema).")],
-    wait: Annotated[bool, Field(description="Block until done. False runs in the background; poll arena_status.")] = False,  # noqa: E501
+    wait: Annotated[
+        bool, Field(description="Block until done. False runs in the background; poll arena_status.")
+    ] = False,  # noqa: E501
     ctx: Context | None = None,
 ) -> dict[str, Any]:
     """Validate the spec, run preflight, then run every contestant x repeat in isolation, judge, and score."""
@@ -2473,7 +2628,9 @@ def arena_start(
         raise ArenaError(f"Invalid spec: {exc}") from exc
     s = store()
     arena = pipeline.create(s, parsed)
-    handle = jobs.in_background(s, arena.id, "arena", wait, ctx, lambda progress: pipeline.execute(s, arena.id, progress))
+    handle = jobs.in_background(
+        s, arena.id, "arena", wait, ctx, lambda progress: pipeline.execute(s, arena.id, progress)
+    )
     return handle or arena_status(arena.id)
 
 
@@ -2493,14 +2650,23 @@ def arena_status(arena_id: ArenaId = None) -> dict[str, Any]:
 def arena_result(
     arena_id: ArenaId = None,
     html: Annotated[bool, Field(description="Also write a self-contained HTML report and return its path.")] = False,
-    promote: Annotated[Literal["patch", "branch", "apply"] | None, Field(description="Ship the winner: patch (write winner.diff), branch (create arena/<id>-<winner> without touching your checkout), apply (git apply --3way into your tree).")] = None,  # noqa: E501
+    promote: Annotated[
+        Literal["patch", "branch", "apply"] | None,
+        Field(
+            description="Ship the winner: patch (write winner.diff), branch (create arena/<id>-<winner> without touching your checkout), apply (git apply --3way into your tree)."
+        ),
+    ] = None,  # noqa: E501
 ) -> dict[str, Any]:
     """The scorecard: per-contestant medians, the winner for the objective, the verdict and notes."""
     s = store()
     arena = s.load(arena_id)
     if arena.scorecard is None:
         raise ArenaError(f"Arena {arena.id} is {arena.status}; no scorecard yet. Check arena_status.")
-    out: dict[str, Any] = {"arena_id": arena.id, "scorecard": arena.scorecard.model_dump(), "report": scorecard.render_markdown(arena)}
+    out: dict[str, Any] = {
+        "arena_id": arena.id,
+        "scorecard": arena.scorecard.model_dump(),
+        "report": scorecard.render_markdown(arena),
+    }
     if html:
         path = s.arena_dir(arena.id) / "report.html"
         write_atomic(path, scorecard.render_html(arena))
@@ -2658,7 +2824,13 @@ from agents_arena_mcp import __version__
 from agents_arena_mcp.arena import arena_history, arena_plan, arena_result, arena_start, arena_status, store
 from agents_arena_mcp.errors import ArenaError
 
-COMMANDS = {"plan": arena_plan, "start": arena_start, "status": arena_status, "result": arena_result, "history": arena_history}
+COMMANDS = {
+    "plan": arena_plan,
+    "start": arena_start,
+    "status": arena_status,
+    "result": arena_result,
+    "history": arena_history,
+}
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -2705,7 +2877,9 @@ def main(argv: list[str] | None = None) -> int:
         else:
             if args.cmd == "start":
                 if not args.wait:
-                    raise ArenaError("Background runs need the MCP server (this CLI process would exit and kill them); use --wait")
+                    raise ArenaError(
+                        "Background runs need the MCP server (this CLI process would exit and kill them); use --wait"
+                    )
                 kwargs["spec"] = _load_spec(kwargs["spec"])
             result = COMMANDS[args.cmd](**kwargs)
     except ArenaError as exc:
@@ -2797,7 +2971,12 @@ def _run_case(case: dict[str, Any], judge: dict[str, Any]) -> dict[str, Any]:
         for rel, content in case["base"].items():
             (repo / rel).parent.mkdir(parents=True, exist_ok=True)
             (repo / rel).write_text(content, encoding="utf-8")
-        ident = {"GIT_AUTHOR_NAME": "e", "GIT_AUTHOR_EMAIL": "e@x", "GIT_COMMITTER_NAME": "e", "GIT_COMMITTER_EMAIL": "e@x"}
+        ident = {
+            "GIT_AUTHOR_NAME": "e",
+            "GIT_AUTHOR_EMAIL": "e@x",
+            "GIT_COMMITTER_NAME": "e",
+            "GIT_COMMITTER_EMAIL": "e@x",
+        }
         for args in (["init", "-q"], ["add", "-A"], ["commit", "-qm", "base"]):
             subprocess.run(["git", *args], cwd=repo, check=True, capture_output=True, env={**os.environ, **ident})
         contestants = [{"name": side, "harness": "command", "argv": [sys.executable, "-c", WRITER, json.dumps(
