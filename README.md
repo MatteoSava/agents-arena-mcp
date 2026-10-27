@@ -1,160 +1,228 @@
-# Agents Arena
+<div align="center">
 
-An experiment bench for coding agents. You describe a task and a set of contestants. Each contestant runs the task several times, each run in its own git worktree. The arena checks every run against the base commit, judges the survivors blind, and returns a scorecard.
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/assets/hero-dark.svg">
+  <img alt="Agents Arena: race your agents, ship the winner" src="docs/assets/hero-light.svg" width="100%">
+</picture>
 
-It is a local MCP server and CLI. It works with Claude Code, Codex and OpenCode.
+**Stop guessing which agent, model, prompt or skill is better. Run the experiment.**
 
-## What it is for
+[![CI](https://github.com/MatteoSava/agents-arena-mcp/actions/workflows/ci.yml/badge.svg)](https://github.com/MatteoSava/agents-arena-mcp/actions/workflows/ci.yml)
+[![MCP](https://img.shields.io/badge/MCP-server-7c9cff)](https://modelcontextprotocol.io)
+[![Python 3.11+](https://img.shields.io/badge/python-3.11%2B-3776ab)](https://python.org)
+[![MIT](https://img.shields.io/badge/license-MIT-2ea44f)](LICENSE)
 
-1. **Comparing harnesses.** Claude Code vs Codex vs OpenCode on the same task and the same checks.
-2. **A/B testing a skill or an instruction edit.** Same harness and model, one contestant per version of the `SKILL.md` or `CLAUDE.md`.
-3. **Comparing speed, tokens and cost.** Metric objectives skip the judge and rank by the median of the runs.
-4. **Finding the most elegant solution.** Give each contestant a different concrete strategy, and let a rubric judge pick.
+[Quick start](#quick-start) · [How it works](#how-it-works) · [Can you trust the judge?](#can-you-trust-the-judge) · [Spec reference](#spec-reference) · [Design](docs/design.md)
+
+</div>
+
+---
+
+Agents Arena is an **experiment bench for coding agents**. It runs as an MCP server, so your agent drives it, and also as a CLI.
+
+1. You describe a task and a few **contestants**, for example Claude vs Codex, skill v1 vs v2, or "minimal fix" vs "test-first".
+2. Each contestant runs the task several times. Every run gets **its own git worktree** and, optionally, **a clean harness home** with none of your personal config in it.
+3. Every run is checked against your base commit, so only regressions count against it.
+4. A judge scores every run **blind**, then compares the best runs in a final judged **in both orders**, so position bias can't decide the result.
+5. You get a **scorecard** with quality, tokens, time and cost, and you can ship the winner as a branch.
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/assets/scorecard-dark.svg">
+  <img alt="A real scorecard: two CLAUDE.md variants, 3 runs each, judged blind by codex" src="docs/assets/scorecard-light.svg" width="100%">
+</picture>
+
+<sub>A real scorecard, not a mockup: two `CLAUDE.md` variants, 3 Claude runs each, judged blind by Codex.</sub>
+
+## Four questions it answers
+
+| You want to know… | Vary | Objective |
+|---|---|---|
+| **Which harness is best on *my* repo?** | `harness`: claude, codex, opencode | `quality` |
+| **Did my skill / `CLAUDE.md` edit actually help?** | one overlay file, same harness and model | `quality` or custom rubric text |
+| **Which setup is fastest or cheapest?** | anything | `speed`, `tokens` or `cost` (no judge needed) |
+| **What's the most elegant fix?** | `strategy`: "minimal patch", "push IO behind an adapter", … | `elegance` |
+
+## Quick start
+
+```bash
+# 1. Give your agent the arena (Claude Code shown; any MCP client works)
+claude mcp add agents-arena -- uvx --from git+https://github.com/MatteoSava/agents-arena-mcp@v0.3.0 agents-arena-mcp
+
+# 2. Optional: teach your agents the workflow
+uv tool install git+https://github.com/MatteoSava/agents-arena-mcp@v0.3.0
+cd your-repo && agents-arena init --skills claude,codex
+```
+
+Then just ask:
+
+```text
+You:    arena: did my new retry skill help? Compare it with the old one, 3 runs each.
+Agent:  → arena_plan(mode="interview")
+        Clean harness or your real setup? Score on quality only, or tokens too?
+        I found `uv run pytest -q`. Use it as the check?
+You:    clean, quality, yes, judge with codex.
+Agent:  → arena_start(spec)  … arena_status  … arena_result(html=true)
+        skill-v2 won the final in both orders. Scorecard and report.html are ready.
+You:    ship it.
+Agent:  → arena_result(promote="branch")  ⇒  arena/<id>-skill-v2  (your checkout is untouched)
+```
+
+## How it works
+
+```mermaid
+flowchart LR
+    P[arena_plan<br/><sub>interview or autopilot</sub>] --> S[arena_start]
+    S --> F{preflight}
+    F -->|fails fast| X[clear error]
+    F --> B[baseline checks<br/><sub>on the base commit</sub>]
+    B --> R1[run a·1] & R2[run a·2] & R3[run b·1] & R4[run b·2]
+    R1 & R2 & R3 & R4 --> G[gates<br/><sub>regressions · deleted tests · skip markers</sub>]
+    G --> J[blind rubric<br/><sub>score per run</sub>]
+    J --> FN[final<br/><sub>best runs, A·B and B·A</sub>]
+    FN --> C[scorecard · history · HTML]
+    C --> W[promote winner]
+```
+
+Each run follows the same steps:
+- **Isolate:** a fresh worktree at your base commit. A `clean` baseline also gets its own `HOME`, with only that harness's login copied in.
+- **Overlay:** your files go into the worktree or the clean home. Overlays never count as the contestant's code.
+- **Setup:** an optional `setup` command, such as `npm ci`. Its output doesn't count as the contestant's code either.
+- **Run:** the agent works headless, and the arena records tokens, cost, turns and wall time.
+- **Snapshot and check:** the result becomes a git commit, checks run, and gates are applied. The worktree is then deleted, leaving the commit and patch.
 
 ## Contestants
 
 A contestant is **harness + model + baseline + overlays + strategy**.
 
-| Field | Meaning |
-|---|---|
-| `harness` | `claude`, `codex`, `opencode`, or `command` (your own argv) |
-| `model` | Passed to the harness. Empty means the harness default. opencode always needs an explicit model |
-| `baseline` | `clean` or `real` (below) |
-| `overlays` | Files copied in before the run: `repo:<path>` into the worktree, `home:<path>` into the clean home |
-| `strategy` | Optional text added to the brief, for example "write the test first" |
-
-### Baselines
-
-- **`real`** (default) uses your actual home, untouched. Your skills, plugins, MCP servers and global instructions all load. The arena never writes into it, but the harness still records its usual session history there. Only `repo:` overlays are allowed.
-- **`clean`** gives the run a fresh `HOME`, so only built-in behavior and the overlays you add are present. Use it for controlled A/Bs. Auth differs per harness:
-  - claude: the macOS keychain login doesn't carry over. Set `CLAUDE_CODE_OAUTH_TOKEN` (from `claude setup-token`) or `ANTHROPIC_API_KEY`.
-  - codex: `auth.json` is copied into the clean home.
-  - opencode: stored logins live in a database that isn't copied. Only providers keyed by environment variables work (for example `OPENROUTER_API_KEY`), and you must set `model`, for example `openrouter/openai/gpt-5-mini`.
-
-Which baseline to use matters. In one of our tests, a `CLAUDE.md` A/B on `real` showed no difference, because the global `~/.claude/CLAUDE.md` (TDD, TODO.md) shaped every run. If you A/B instructions, use `clean`. Preflight checks the auth requirements above and fails before any run starts.
-
-## Install
-
-```bash
-# MCP server for Claude Code
-claude mcp add agents-arena -- uvx --from git+https://github.com/MatteoSava/agents-arena-mcp@v0.3.0 agents-arena-mcp
-
-# CLI
-uv tool install git+https://github.com/MatteoSava/agents-arena-mcp@v0.3.0
-cd your-repo && agents-arena init --skills claude,codex
-```
-
-`init` writes the workflow skill for each agent you name (`claude`, `codex`, `opencode`). The same guide is served as the MCP resource `arena://guide`.
-
-Run arenas from a shell that has your provider keys. A tmux server started before a variable was set does not pass it to new sessions.
-
-## The flow
-
-| MCP tool | CLI | What it does |
+| | `real` baseline | `clean` baseline |
 |---|---|---|
-| `arena_plan(request, mode)` | `agents-arena plan "..." [--mode autopilot]` | Drafts a spec. `interview` returns questions to ask you; `autopilot` returns a filled draft. Runs nothing |
-| `arena_start(spec, wait)` | `agents-arena start spec.toml` | Validates, runs preflight, then runs every contestant x repeat, judges and scores. `wait=false` runs in the background |
-| `arena_status(arena_id)` | `agents-arena status` | Each run's state, exit status and eligibility, plus job progress |
-| `arena_result(arena_id, html, promote)` | `agents-arena result --html --promote branch` | The scorecard. `html` writes a self-contained report. `promote` ships the winner: `patch`, `branch` (no checkout change) or `apply` (only if it applies cleanly) |
-| `arena_history(contestant, task_contains, limit)` | `agents-arena history` | Past results, newest first, for trends across edits |
+| What the agent sees | your skills, plugins, MCP servers, global `CLAUDE.md` | only the built-ins plus your overlays |
+| Good for | "which setup works best *for me*" | controlled A/B tests of skills and instructions |
+| Your home | used as-is (the harness still records its usual history) | never touched; the run gets a fresh `HOME` |
+| claude auth | your keychain login | `CLAUDE_CODE_OAUTH_TOKEN` (`claude setup-token`) or `ANTHROPIC_API_KEY` |
+| codex auth | your login | `auth.json` copied into the clean home |
+| opencode auth | your stored logins | env-keyed providers only (e.g. `OPENROUTER_API_KEY`); always set `model` |
 
-The CLI always waits (a background run would die with the process). Use the MCP server for background runs.
+> [!TIP]
+> **A/B testing instructions? Use `clean`.** In a real run, a `CLAUDE.md` A/B showed *no* difference. The user's global `~/.claude/CLAUDE.md` (TDD, keep a TODO.md) shaped every run more than the file under test did.
 
-An example conversation:
+## Can you trust the judge?
 
-```text
-You:    A/B my new retry-handling skill against the old one on this repo.
-Agent:  arena_plan(request, mode="interview") -> asks: which checks? which harness? how many repeats?
-You:    pytest, claude, 3 repeats, judge with codex.
-Agent:  shows the spec, you approve, arena_start(spec) -> polls arena_status
-Agent:  arena_result(html=true) -> "skill-v2 won the final in both orders", 3/3 eligible vs 2/3
-You:    Promote it.
-Agent:  arena_result(promote="branch") -> branch arena/<id>-skill-v2
-```
+Judging is where comparisons usually go wrong, so the arena measures its own judge. `agents-arena eval-judge` runs 8 seeded pairs with known answers through the real judging path:
+- a correct fix vs a no-op
+- a test-deleting cheat
+- a skip-marker cheat
+- a hard-coded special case
+- an API break
+- verbose vs minimal
+- a near-identical pair
 
-## A spec
+| Judge (measured 2026-10-27) | Accuracy | Order-flip rate | Picks label "A" |
+|---|---:|---:|---:|
+| codex 0.164.0 | **87.5%** | **0%** | 50% |
+| claude 2.1.291 | **87.5%** | **0%** | 50% |
+| opencode · openrouter/openai/gpt-5-mini | 75% | 12.5% | 44% |
 
-Specs can be JSON (the MCP call) or TOML (the CLI). Unknown keys are rejected, check names and contestant names must be unique, and 1 to 6 contestants are allowed.
-
-```toml
-task = "Make retries respect the Retry-After header"
-objective = "quality"          # quality | elegance | speed | tokens | cost | any rubric text
-repeats = 3
-setup = "uv sync"              # runs on the base commit and in each run's worktree before the agent
-
-[[checks]]
-name = "tests"
-cmd = "uv run pytest -q"
-
-[[contestants]]
-name = "skill-v1"
-harness = "claude"
-baseline = "clean"
-
-[[contestants.overlays]]
-from = "~/skills/retry-v1/SKILL.md"
-to = "repo:.claude/skills/retry/SKILL.md"
-
-[[contestants]]
-name = "skill-v2"
-harness = "claude"
-baseline = "clean"
-
-[[contestants.overlays]]
-from = "~/skills/retry-v2/SKILL.md"
-to = "repo:.claude/skills/retry/SKILL.md"
-
-[judge]
-harness = "codex"              # prefer a different family than the contestants
-```
-
-Other fields: `base_ref` (default `HEAD`), `max_parallel` (4), `run_timeout_sec` (1800), `check_timeout_sec` (600), `judge.timeout_sec` (600). Overlays are never counted as the contestant's code: the diff is measured from the base commit plus the overlays (and `setup` output).
-
-## Objectives and judging
-
-- **Judged** (`quality`, `elegance`, or any other text, which becomes a custom rubric): each eligible run gets a blind rubric score from 0 to 10. Then each contestant's best run meets every other contestant's best run in a final, judged in both orders (A/B and B/A). A run wins a pair only if it wins in both orders. A split or a tie counts as no signal.
-- **Metric** (`speed`, `tokens`, `cost`): no judge. The contestant with the lowest median wins. Cost is shown only for harnesses that report it. codex reports tokens but no dollars.
-
-The judge sees anonymized diffs and the check evidence. It runs in a temporary directory outside your repo.
-
-The scorecard has one row per contestant: runs, **eligible** (share of runs that produced a non-empty change and tripped no disqualifying gate), median score, tokens, time, cost and diff lines, plus flags for gates that fired. With one repeat the "medians" are single values, so use 3 to 5 repeats for comparisons you want to trust.
-
-### Gates
-
-Computed on each run's patch and checks, before judging. Checks run once on the base commit, so a run is held only for regressions it introduced.
-
-| Severity | Gates |
-|---|---|
-| Disqualify (not eligible) | `empty` (no changes), `agent_timeout`, `test_deleted`, `protected_path` (CI files, `.agents-arena/`), `check_regression` |
-| Needs human (shown, still eligible) | `agent_failed` (non-zero exit), `agent_config_edited`, `secret_path`, `test_config_changed`, `skip_marker_added`, `trivial_assert_added` |
-| Info | `existing_test_edited`, `check_failing_on_base_too` |
-
-## eval-judge
+A position-biased judge would pick "A" much more than 50% of the time, and its verdicts would flip when A and B are swapped. Every final is judged in both orders, and a split verdict counts as a tie, never as a win.
 
 ```bash
 agents-arena eval-judge --judge codex
 agents-arena eval-judge --judge claude --model sonnet
 ```
 
-Runs 8 seeded pairs with known answers through the real final-judging path: a correct fix vs a no-op, a test-deleting cheat, a skip-marker cheat, a hard-coded special case, an API break, verbose vs minimal, and a near-identical pair. It reports accuracy, order-flip rate, tie rate, and how often the judge picks the label "A". Results are saved under `~/.cache/agents-arena/evals/`.
+## Guardrails
 
-Baselines measured on 2026-10-27:
+Gates run on every patch before judging:
 
-| Judge | Accuracy | Order-flip rate | Picked label A |
-|---|---:|---:|---:|
-| codex 0.164.0 | 0.875 | 0.0 | 0.5 |
-| claude 2.1.291 | 0.875 | 0.0 | 0.5 |
-| opencode, openrouter/openai/gpt-5-mini | 0.75 | 0.125 | 0.438 |
+| | |
+|---|---|
+| ⛔ **Disqualified** | no changes · agent timed out · deleted a test · touched CI or `.agents-arena/` · broke a check that passed on the base commit |
+| ⚠️ **Flagged for you** | agent exited non-zero · edited agent config (`.claude/`, `AGENTS.md`…) · secret-looking paths · test config changes · added skip/xfail markers · `assert True` |
+| ℹ️ **Noted** | edited an existing test · check already failing on the base commit |
 
-claude's only miss was `06_near_identical`. Preflight for the judge is skipped in this command.
+Build artifacts (`__pycache__`, `.pytest_cache`, `node_modules`, `.venv`, tool caches) are never counted as part of a solution.
 
-## Trust model
+<details>
+<summary><b>Spec reference</b></summary>
 
-Contestants and checks run agent-written code on your machine with your privileges, the same as running `make test` on an untrusted branch. Worktrees isolate files, not processes. A `real` contestant also has access to your usual config and credentials. Check and setup commands come only from the spec. Supported platforms are macOS and Linux. Windows, network filesystems, git submodules and Git LFS are not supported.
+<a id="spec-reference"></a>
 
-## Verified versions
+The MCP call takes JSON, and the CLI takes TOML or JSON with the same structure. Unknown keys are rejected, so a typo fails loudly. Contestant names and check names must be unique, and a spec can have 1 to 6 contestants.
 
-claude 2.1.291, codex-cli 0.164.0, opencode 2.1.4. Other versions may work; the CLI flags and output formats are what could break.
+```toml
+task      = "Make retries respect the Retry-After header"
+objective = "quality"   # quality | elegance | speed | tokens | cost | any rubric text
+repeats   = 3
+setup     = "uv sync"   # runs on the base commit and in every run's worktree
+
+[[checks]]
+name = "tests"
+cmd  = "uv run pytest -q"
+
+[[contestants]]
+name     = "skill-v1"
+harness  = "claude"     # claude | codex | opencode | command
+baseline = "clean"      # clean | real
+strategy = ""           # optional approach, added to the brief
+
+  [[contestants.overlays]]
+  from = "~/skills/retry-v1/SKILL.md"
+  to   = "repo:.claude/skills/retry/SKILL.md"   # or home:<path> (clean only)
+
+[[contestants]]
+name     = "skill-v2"
+harness  = "claude"
+baseline = "clean"
+
+  [[contestants.overlays]]
+  from = "~/skills/retry-v2/SKILL.md"
+  to   = "repo:.claude/skills/retry/SKILL.md"
+
+[judge]
+harness = "codex"       # prefer a different model family than the contestants
+```
+
+| Field | Default | |
+|---|---|---|
+| `base_ref` | `HEAD` | commit or branch to start from |
+| `max_parallel` | `4` | concurrent runs |
+| `run_timeout_sec` | `1800` | per agent run; a timeout disqualifies the run |
+| `check_timeout_sec` | `600` | per check and for `setup` |
+| `judge.model`, `judge.timeout_sec` | harness default, `600` | |
+
+**Winners:**
+- **Judged objectives:** the contestant whose best run wins the final in both orders. Otherwise, the highest median rubric score. If that's still a tie, you decide.
+- **Metric objectives:** the lowest median among eligible runs.
+
+</details>
+
+<details>
+<summary><b>Tools and CLI</b></summary>
+
+| MCP tool | CLI | |
+|---|---|---|
+| `arena_plan(request, mode)` | `agents-arena plan "…" --mode autopilot` | Draft a spec from detected checks, setup and installed harnesses. Runs nothing |
+| `arena_start(spec, wait)` | `agents-arena start spec.toml` | Preflight, then run everything. Over MCP, `wait=false` runs it in the background |
+| `arena_status(arena_id)` | `agents-arena status` | Per-run state, exit status, eligibility and job progress |
+| `arena_result(arena_id, html, promote)` | `agents-arena result --html --promote branch` | Scorecard and report. `promote`: `patch`, `branch` (no checkout), or `apply` (only if it applies cleanly) |
+| `arena_history(contestant, task_contains, limit)` | `agents-arena history` | Past results, newest first |
+| resource `arena://guide` | `agents-arena init --skills …` | The workflow guide, as a resource or as an installed skill |
+| | `agents-arena eval-judge --judge …` | Measure a judge (see above) |
+
+The CLI always waits for a run to finish, because a background run would die when the CLI process exits. Use the MCP server for background runs. Arena state lives in `.agents-arena/`, which ignores itself in git, and history is kept in `.agents-arena/history.jsonl`.
+
+</details>
+
+<details>
+<summary><b>Trust model and platform support</b></summary>
+
+- Contestants and checks run agent-written code on your machine with your privileges, the same as running `make test` on an untrusted branch. Worktrees isolate files, not processes.
+- A `real` contestant has your usual config and credentials.
+- Check and setup commands come only from the spec. Judges run in a temporary directory outside your repo.
+- macOS and Linux are supported. Windows, network filesystems, git submodules and Git LFS are not.
+- Verified with claude 2.1.291, codex-cli 0.164.0 and opencode 2.1.4. CLI flags and output formats are what change between versions. Each harness's isolation recipe is in [docs/v0.3-isolation-spike.md](docs/v0.3-isolation-spike.md).
+
+</details>
 
 ## Development
 
@@ -164,9 +232,4 @@ uv run pytest -q
 uv run ruff check . && uv run ruff format --check . && uv run basedpyright
 ```
 
-## More
-
-- [docs/design.md](docs/design.md): architecture, data layout, selection logic.
-- [docs/v0.3-isolation-spike.md](docs/v0.3-isolation-spike.md): how each harness is isolated, and what the spike found.
-
-MIT license.
+Architecture, data layout and selection logic are described in [docs/design.md](docs/design.md). What's next is in [TODO.md](TODO.md). MIT licensed.
