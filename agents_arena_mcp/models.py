@@ -106,6 +106,9 @@ class Spec(BaseModel):
         names = [c.name for c in self.contestants]
         if len(set(names)) != len(names):
             raise ValueError("contestant names must be unique")
+        check_names = [c.name for c in self.checks]
+        if len(set(check_names)) != len(check_names):
+            raise ValueError("check names must be unique")
         if self.judge.harness == "command" and not self.judge.argv:
             raise ValueError("judge harness 'command' needs argv")
         return self

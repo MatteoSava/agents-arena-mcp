@@ -21,6 +21,8 @@ NODE_LOCKS = (("pnpm-lock.yaml", "pnpm", "pnpm install --frozen-lockfile"), ("ya
               ("bun.lock", "bun", "bun install --frozen-lockfile"), ("bun.lockb", "bun", "bun install --frozen-lockfile"),
               ("package-lock.json", "npm", "npm ci"))  # fmt: skip
 
+OPENCODE_KEYS = ("OPENROUTER_API_KEY", "ANTHROPIC_API_KEY", "OPENAI_API_KEY", "GEMINI_API_KEY")
+
 
 def _python_prefix(root: Path) -> str:
     if (root / "uv.lock").exists():
@@ -33,6 +35,16 @@ def _python_prefix(root: Path) -> str:
 def _node(root: Path) -> tuple[str, str]:
     """(package manager, install command) for a Node repo, from its lockfile."""
     return next(((pm, cmd) for lock, pm, cmd in NODE_LOCKS if (root / lock).exists()), ("npm", "npm install"))
+
+
+def _scripts(package: Path) -> dict[str, Any]:
+    """package.json scripts, or {} when the file is malformed."""
+    try:
+        data = json.loads(package.read_text(encoding="utf-8"))
+    except (json.JSONDecodeError, UnicodeDecodeError):
+        return {}
+    scripts = data.get("scripts") if isinstance(data, dict) else None
+    return scripts if isinstance(scripts, dict) else {}
 
 
 def detect_setup(root: Path) -> str:
@@ -55,13 +67,14 @@ def detect_checks(root: Path) -> list[Check]:
             found.append(Check(name="lint", cmd=f"{prefix} ruff check ."))
     package = root / "package.json"
     if package.exists():
-        scripts = json.loads(package.read_text(encoding="utf-8")).get("scripts", {})
         pm = _node(root)[0]
-        found += [Check(name=f"js-{s}", cmd=f"{pm} run {s}") for s in ("test", "lint", "typecheck") if s in scripts]
+        found += [
+            Check(name=f"js-{s}", cmd=f"{pm} run {s}") for s in ("test", "lint", "typecheck") if s in _scripts(package)
+        ]
     if (root / "go.mod").exists():
-        found.append(Check(name="tests", cmd="go test ./..."))
+        found.append(Check(name="go-test", cmd="go test ./..."))
     if (root / "Cargo.toml").exists():
-        found.append(Check(name="tests", cmd="cargo test"))
+        found.append(Check(name="rust-test", cmd="cargo test"))
     makefile = root / "Makefile"
     if not found and makefile.exists() and re.search(r"^test:", makefile.read_text(encoding="utf-8"), re.M):
         found.append(Check(name="tests", cmd="make test"))
@@ -74,8 +87,12 @@ def harness_status() -> dict[str, dict[str, Any]]:
         installed = shutil.which(name) is not None
         clean = {"claude": any(os.environ.get(v) for v in harness.TOKEN_VARS),
                  "codex": (Path.home() / ".codex" / "auth.json").exists(),
-                 "opencode": True}[name]  # fmt: skip
+                 "opencode": any(os.environ.get(v) for v in OPENCODE_KEYS)}[name]  # fmt: skip
         out[name] = {"installed": installed, "clean_ready": installed and clean, "family": harness.get(name).family}
+        if name == "opencode":
+            out[name]["note"] = (
+                "clean opencode only sees providers keyed by environment variables; it also needs an explicit model"
+            )
     return out
 
 
@@ -109,6 +126,9 @@ def make_plan(root: Path, request: str, mode: str) -> dict[str, Any]:
     judge = next((n for n in ("codex", "claude") if n in installed), "none")
     draft = Spec.model_validate({"task": request, "repeats": 3, "checks": [c.model_dump() for c in checks], "setup": setup,
                                  "judge": {"harness": judge}, "contestants": [{"name": n, "harness": n} for n in installed]})  # fmt: skip
+    same_family = judge != "none" and any(harness.get(n).family == harness.get(judge).family for n in installed)
+    judge_line = (f"judge: {judge} (same family as a contestant; prefer a different family or model for a fairer verdict)"
+                  if same_family else f"judge: {judge} (prefer a different model family than the contestants)")  # fmt: skip
     out: dict[str, Any] = {"mode": mode, "draft_spec": draft.model_dump(by_alias=True), "detected_checks": [c.model_dump() for c in checks],
                            "detected_setup": setup, "harnesses": status, "spec_schema": Spec.model_json_schema(by_alias=True)}  # fmt: skip
     if mode == "interview":
@@ -119,7 +139,7 @@ def make_plan(root: Path, request: str, mode: str) -> dict[str, Any]:
     else:
         out["rationale"] = [
             f"contestants: one per installed harness ({', '.join(installed)}); replace with the comparison the user asked for",
-            f"judge: {judge} (prefer a different model family than the contestants)",
+            judge_line,
             "repeats: 3, enough for a median without much cost",
             f"checks: {', '.join(c.cmd for c in checks) or 'none detected; add the repo test command'}",
             f"setup: {setup or 'none needed'}",

@@ -59,3 +59,9 @@ def test_unknown_spec_fields_are_rejected():
         Spec.model_validate({"task": "t", "repeat": 3, "contestants": [{"name": "a", "harness": "claude"}]})
     with pytest.raises(ValidationError):
         Spec.model_validate({"task": "t", "contestants": [{"name": "a", "harness": "claude", "modle": "x"}]})
+
+
+def test_check_names_must_be_unique():
+    checks = [{"name": "tests", "cmd": "a"}, {"name": "tests", "cmd": "b"}]
+    with pytest.raises(ValidationError, match="check names must be unique"):
+        spec(checks=checks)

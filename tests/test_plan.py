@@ -16,7 +16,10 @@ def test_detects_python_uv_and_node_pnpm(tmp_path):
 
 def test_detects_go_rust_make(tmp_path):
     (tmp_path / "go.mod").write_text("module x\n")
-    assert [c.cmd for c in plan.detect_checks(tmp_path)] == ["go test ./..."]
+    assert [(c.name, c.cmd) for c in plan.detect_checks(tmp_path)] == [("go-test", "go test ./...")]
+    (tmp_path / "Cargo.toml").write_text("")
+    assert [c.name for c in plan.detect_checks(tmp_path)] == ["go-test", "rust-test"]
+    (tmp_path / "Cargo.toml").unlink()
     (tmp_path / "go.mod").unlink()
     (tmp_path / "Makefile").write_text("build:\n\ttrue\ntest:\n\ttrue\n")
     assert [c.cmd for c in plan.detect_checks(tmp_path)] == ["make test"]
@@ -44,3 +47,24 @@ def test_plan_modes_return_valid_draft(repo, monkeypatch):
     ids = [q["id"] for q in interview["questions"]]
     assert ids == ["compare", "objective", "baseline", "repeats", "checks", "setup", "judge", "ship"]
     assert interview["harnesses"]["claude"]["installed"] is True
+    assert auto["detected_setup"] == ""
+    assert any("same family" in line for line in auto["rationale"] if line.startswith("judge:"))
+
+
+def test_malformed_package_json_is_skipped(tmp_path):
+    for text in ("{not json", "[]", '{"scripts": []}'):
+        (tmp_path / "package.json").write_text(text)
+        assert plan.detect_checks(tmp_path) == []
+
+
+def test_opencode_clean_ready_needs_provider_env(monkeypatch):
+    monkeypatch.setattr(plan.shutil, "which", lambda name: f"/bin/{name}")
+    keys = ("OPENROUTER_API_KEY", "ANTHROPIC_API_KEY", "OPENAI_API_KEY", "GEMINI_API_KEY")
+    for k in keys:
+        monkeypatch.delenv(k, raising=False)
+    status = plan.harness_status()["opencode"]
+    assert status["clean_ready"] is False and "explicit model" in status["note"]
+    monkeypatch.setenv("OPENROUTER_API_KEY", "x")
+    assert plan.harness_status()["opencode"]["clean_ready"] is True
+    monkeypatch.setattr(plan.shutil, "which", lambda name: None)
+    assert plan.harness_status()["opencode"]["clean_ready"] is False
