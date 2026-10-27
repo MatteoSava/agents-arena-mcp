@@ -209,3 +209,14 @@ def test_judge_template_is_overridable(repo: Path, fakes):
 
     prompt = (Path(next(iter(arena.matches.values())).run_dir) / "prompt.md").read_text()
     assert prompt.startswith("CUSTOM my task")
+
+
+def test_same_family_judge_is_flagged(repo: Path, fakes):
+    write_config(repo, fakes, extra="[judge]\nrunner = 'fake'", families=("shared", "shared"))
+    ops.arena_open("task", variants=["x", "y"])
+    ops.arena_run(wait=True)
+    (Path(ops.arena_status()["variants"]["y"]["workspace"]) / "extra.py").write_text("E = 1\n")
+
+    decision, _ = judged(repo)
+
+    assert any("judge family 'shared' also generated x, y" in r for r in decision.rationale)

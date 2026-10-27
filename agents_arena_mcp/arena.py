@@ -248,13 +248,30 @@ def arena_judge(
                 agentic_round(store, arena.id, config, provisional.ranking[:2])
                 progress("agentic final round done")
         with store.mutate(arena.id) as a:
-            a.decision = select.decide(a, names, judged, notes)
+            a.decision = select.decide(a, names, judged, notes + _family_warnings(a, config) if judged else notes)
             a.status = "judged"
         final = store.load(arena.id)
         (store.arena_dir(arena.id) / "report.md").write_text(report.render(final), encoding="utf-8")
         store.ledger(report.ledger_record(final, config, promoted=False))
 
     return jobs.in_background(store, arena.id, "judge", wait, ctx, work) or summary(store.load(arena.id))
+
+
+def _family_warnings(arena: Arena, config: Config) -> list[str]:
+    """Judges favor their own model family (arXiv 2404.13076); say so when the judge built a variant too."""
+    judge_spec = config.judges.get(config.judge.runner)
+    family = judge_spec.family if judge_spec else ""
+    shared = sorted(
+        {
+            v.name
+            for v in arena.variants.values()
+            for r in v.runs
+            if family and r.runner in config.runners and config.runners[r.runner].family == family
+        }
+    )
+    if not shared:
+        return []
+    return [f"warning: judge family '{family}' also generated {', '.join(shared)}; consider a cross-family judge"]
 
 
 def arena_promote(

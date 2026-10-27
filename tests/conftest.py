@@ -90,7 +90,12 @@ def fakes(tmp_path: Path) -> dict[str, Path]:
     return {"runner": runner, "judge": judge}
 
 
-def write_config(repo: Path, fakes: dict[str, Path] | None = None, extra: str = "") -> None:
+def write_config(
+    repo: Path,
+    fakes: dict[str, Path] | None = None,
+    extra: str = "",
+    families: tuple[str, str] = ("fake-gen", "fake-judge"),
+) -> None:
     """Write .agents-arena/config.toml. `extra` is TOML (top-level keys first); fake runner/judge tables go last."""
     head = ["default_runner = 'fake'"] if fakes else []
     tables = []
@@ -99,10 +104,10 @@ def write_config(repo: Path, fakes: dict[str, Path] | None = None, extra: str = 
         tables = [
             "[runners.fake]",
             f"argv = ['{py}', '{fakes['runner']}', '{{workspace}}', '{{run_dir}}']",
-            "family = 'fake-gen'",
+            f"family = '{families[0]}'",
             "[judges.fake]",
             f"argv = ['{py}', '{fakes['judge']}', '{{prompt_file}}', '{{output_file}}']",
-            "family = 'fake-judge'",
+            f"family = '{families[1]}'",
         ]
     config = repo / ".agents-arena" / "config.toml"
     config.parent.mkdir(parents=True, exist_ok=True)
