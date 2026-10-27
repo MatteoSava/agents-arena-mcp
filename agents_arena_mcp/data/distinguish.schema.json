@@ -1,9 +1,0 @@
-{
-  "type": "object",
-  "additionalProperties": false,
-  "required": ["command", "rationale"],
-  "properties": {
-    "command": {"type": "string"},
-    "rationale": {"type": "string"}
-  }
-}

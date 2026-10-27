@@ -3,17 +3,22 @@
 from __future__ import annotations
 
 import os
+import secrets
 import threading
 import traceback
 from collections.abc import Callable
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
 from fastmcp import Context
 
 from agents_arena_mcp.models import Job
-from agents_arena_mcp.runners import new_run_id
 from agents_arena_mcp.store import Store, utc_now, write_atomic
+
+
+def new_run_id(prefix: str) -> str:
+    return f"{prefix}-{datetime.now(UTC).strftime('%Y%m%dT%H%M%S')}-{secrets.token_hex(3)}"
 
 
 def _path(store: Store, arena_id: str, job_id: str) -> Path:
