@@ -33,7 +33,12 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--mode", choices=["interview", "autopilot"], default="interview")
     p = sub.add_parser("start", help="Run a spec file (TOML or JSON)")
     p.add_argument("spec", help="Path to the spec file")
-    p.add_argument("--wait", action=argparse.BooleanOptionalAction, default=True)
+    p.add_argument(
+        "--wait",
+        action=argparse.BooleanOptionalAction,
+        default=True,
+        help="Block until done (default). The CLI can't run in the background; use the MCP server for that.",
+    )
     p = sub.add_parser("status", help="Show arena progress")
     p.add_argument("--arena-id")
     p = sub.add_parser("result", help="Show the scorecard; optionally write HTML or promote")
@@ -50,8 +55,11 @@ def build_parser() -> argparse.ArgumentParser:
 
 
 def _load_spec(path: str) -> dict[str, Any]:
-    text = Path(path).read_text(encoding="utf-8")
-    return tomllib.loads(text) if path.endswith(".toml") else json.loads(text)
+    try:
+        text = Path(path).read_text(encoding="utf-8")
+        return tomllib.loads(text) if path.endswith(".toml") else json.loads(text)
+    except (OSError, ValueError) as exc:
+        raise ArenaError(f"Can't read spec file {path}: {exc}") from exc
 
 
 def main(argv: list[str] | None = None) -> int:

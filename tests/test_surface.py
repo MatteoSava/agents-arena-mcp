@@ -57,3 +57,34 @@ def test_cli_plan_start_result(repo, fakes, tmp_path, capsys):
     assert cli.main(["result", "--html"]) == 0
     out = json.loads(capsys.readouterr().out)
     assert out["scorecard"]["verdict"] and out["html"].endswith("report.html")
+
+
+def test_cli_bad_spec_files_exit_cleanly(tmp_path, capsys):
+    assert cli.main(["start", "/nonexistent/spec.json"]) == 2
+    assert "Can't read spec file" in capsys.readouterr().err
+    bad = tmp_path / "bad.json"
+    bad.write_text("not json")
+    assert cli.main(["start", str(bad)]) == 2
+    assert "Can't read spec file" in capsys.readouterr().err
+
+
+def _toml_table(d):
+    return "\n".join(f"{k} = {json.dumps(v)}" for k, v in d.items())
+
+
+def test_cli_start_toml_spec(repo, fakes, tmp_path, capsys):
+    text = f'task = "t"\n\n[judge]\n{_toml_table(command_judge(fakes))}\n'
+    for name in ("x", "y"):
+        text += f"\n[[contestants]]\n{_toml_table(command_contestant(fakes, name))}\n"
+    path = tmp_path / "spec.toml"
+    path.write_text(text)
+    assert cli.main(["start", str(path)]) == 0
+    assert json.loads(capsys.readouterr().out)["status"] == "done"
+
+
+def test_cli_init_installs_skills(repo, capsys):
+    assert cli.main(["init", "--skills", "claude,codex"]) == 0
+    for d in (".claude", ".agents"):
+        text = (repo / d / "skills/agents-arena/SKILL.md").read_text()
+        assert text.startswith("---\nname: agents-arena") and "arena_plan" in text
+    assert cli.main(["init", "--skills", "nope"]) == 2
