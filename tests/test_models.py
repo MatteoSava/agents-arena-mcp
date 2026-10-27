@@ -52,3 +52,10 @@ def test_run_eligibility():
     assert not ok.model_copy(update={"gates": [Gate(kind="test_deleted", severity="disqualify")]}).eligible
     assert not ok.model_copy(update={"snapshot": snap.model_copy(update={"files": []})}).eligible
     assert not ok.model_copy(update={"state": "failed"}).eligible
+
+
+def test_unknown_spec_fields_are_rejected():
+    with pytest.raises(ValidationError):
+        Spec.model_validate({"task": "t", "repeat": 3, "contestants": [{"name": "a", "harness": "claude"}]})
+    with pytest.raises(ValidationError):
+        Spec.model_validate({"task": "t", "contestants": [{"name": "a", "harness": "claude", "modle": "x"}]})

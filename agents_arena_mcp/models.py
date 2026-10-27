@@ -19,7 +19,7 @@ NAME = re.compile(r"[a-z0-9][a-z0-9_.-]{0,39}")
 class Overlay(BaseModel):
     """Copy `from` (any path) to `to` = 'repo:<path>' (the run's worktree) or 'home:<path>' (its clean home)."""
 
-    model_config = ConfigDict(validate_by_name=True, serialize_by_alias=True)
+    model_config = ConfigDict(validate_by_name=True, serialize_by_alias=True, extra="forbid")
     source: str = Field(alias="from")
     to: str
 
@@ -43,6 +43,8 @@ class Overlay(BaseModel):
 
 
 class Contestant(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
     name: str
     harness: HarnessName
     model: str = ""
@@ -68,11 +70,15 @@ class Contestant(BaseModel):
 
 
 class Check(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
     name: str
     cmd: str
 
 
 class JudgeSpec(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
     harness: Literal["claude", "codex", "opencode", "command", "none"] = "claude"
     model: str = ""
     argv: list[str] = Field(default_factory=list)  # harness="command": {prompt_file} {output_file} {schema_file}
@@ -80,6 +86,8 @@ class JudgeSpec(BaseModel):
 
 
 class Spec(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
     task: str
     objective: str = "quality"  # quality | elegance | speed | tokens | cost | any custom rubric text
     repeats: int = Field(1, ge=1, le=20)

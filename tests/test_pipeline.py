@@ -91,11 +91,14 @@ def test_agent_crash_is_recorded_not_fatal(repo, fakes):
 
 def test_setup_runs_before_agent_and_is_not_counted(repo, fakes):
     store = Store(repo)
-    arena = pipeline.create(store, spec(fakes, repeats=1, setup="echo built > built.txt"))
+    s = spec(fakes, repeats=1, setup="echo built > built.txt", checks=[{"name": "built", "cmd": "test -f built.txt"}])
+    arena = pipeline.create(store, s)
     pipeline.execute(store, arena.id, progress=lambda m: None)
-    runs = store.load(arena.id).runs
-    assert runs and all(r.state == "done" for r in runs.values())
-    for run in runs.values():
+    done = store.load(arena.id)
+    assert done.baseline.status_of("built") == "passed"
+    assert done.runs
+    for run in done.runs.values():
+        assert run.state == "done" and run.checks.status_of("built") == "passed"
         assert [f.path for f in run.snapshot.files] == ["app.py"]
 
 
