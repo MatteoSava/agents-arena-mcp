@@ -78,3 +78,23 @@ def test_overlay_refuses_symlink_escape_and_missing_source(repo, tmp_path):
         workspace.apply_overlays(
             ws, None, [Overlay.model_validate({"from": str(tmp_path / "nope"), "to": "repo:y.md"})]
         )
+
+
+def test_snapshot_excludes_build_artifacts(repo, tmp_path):
+    arena = make_arena(repo, tmp_path)
+    run = Run(id="a-1", contestant="a", repeat=1, base_commit=arena.base_commit)
+    ws = workspace.create(arena, run)
+    (ws / "a.py").write_text("X = 1\n")
+    artifacts = {
+        "__pycache__/a.cpython-312.pyc": b"\x00\x01",
+        "pkg/__pycache__/b.pyc": b"\x00\x02",
+        ".pytest_cache/v/x": b"x",
+        "node_modules/m/index.js": b"x",
+        ".DS_Store": b"x",
+    }
+    for rel, data in artifacts.items():
+        (ws / rel).parent.mkdir(parents=True, exist_ok=True)
+        (ws / rel).write_bytes(data)
+    snap = workspace.snapshot(Store(repo), arena, run, ws)
+    assert [f.path for f in snap.files] == ["a.py"]
+    assert "__pycache__" not in Path(snap.patch_path).read_text()

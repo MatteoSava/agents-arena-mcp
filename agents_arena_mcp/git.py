@@ -47,6 +47,16 @@ def is_dirty(root: Path) -> bool:
     return bool(status)
 
 
+# Artifacts produced by running tools are never part of a contestant's change.
+ARTIFACT_EXCLUDES = [
+    ":(exclude,glob)**/__pycache__/**",
+    ":(exclude,glob)**/*.pyc",
+    ":(exclude,glob)**/.pytest_cache/**",
+    ":(exclude,glob)**/node_modules/**",
+    ":(exclude,glob)**/.DS_Store",
+]
+
+
 def snapshot_commit(workdir: Path, parent: str, message: str) -> str:
     """Commit the whole working tree (tracked + untracked, minus ignored) without touching the real index."""
     index = Path(text(workdir, "rev-parse", "--path-format=absolute", "--git-path", "index"))
@@ -56,7 +66,7 @@ def snapshot_commit(workdir: Path, parent: str, message: str) -> str:
             # copy2 keeps the index mtime: git's racy-entry check depends on it, or same-second edits go unseen.
             shutil.copy2(index, tmp_index)
         env = {"GIT_INDEX_FILE": str(tmp_index), **IDENTITY}
-        git(workdir, "add", "-A", "--", ".", f":(exclude){STATE_DIR}", env=env)
+        git(workdir, "add", "-A", "--", ".", f":(exclude){STATE_DIR}", *ARTIFACT_EXCLUDES, env=env)
         tree = text(workdir, "write-tree", env=env)
     return text(workdir, "commit-tree", tree, "-p", parent, "-m", message, env=IDENTITY)
 
