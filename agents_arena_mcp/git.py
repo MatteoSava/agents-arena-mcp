@@ -54,6 +54,10 @@ ARTIFACT_EXCLUDES = [
     ":(exclude,glob)**/.pytest_cache/**",
     ":(exclude,glob)**/node_modules/**",
     ":(exclude,glob)**/.DS_Store",
+    ":(exclude,glob)**/.venv/**",
+    ":(exclude,glob)**/.mypy_cache/**",
+    ":(exclude,glob)**/.ruff_cache/**",
+    ":(exclude,glob)**/.coverage",
 ]
 
 

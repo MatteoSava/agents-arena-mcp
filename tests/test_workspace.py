@@ -91,6 +91,10 @@ def test_snapshot_excludes_build_artifacts(repo, tmp_path):
         ".pytest_cache/v/x": b"x",
         "node_modules/m/index.js": b"x",
         ".DS_Store": b"x",
+        ".venv/x": b"x",
+        ".mypy_cache/x": b"x",
+        ".ruff_cache/x": b"x",
+        ".coverage": b"x",
     }
     for rel, data in artifacts.items():
         (ws / rel).parent.mkdir(parents=True, exist_ok=True)
