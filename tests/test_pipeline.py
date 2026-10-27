@@ -145,3 +145,8 @@ def test_status_marks_arena_failed_when_its_job_died(repo, fakes):
     status = arena_ops.arena_status(arena.id)
     assert status["status"] == "failed" and "died" in status["error"]
     assert store.load(arena.id).status == "failed"
+
+
+def test_arena_ids_are_unique_within_a_second(repo, fakes):
+    store = Store(repo)
+    assert pipeline.create(store, spec(fakes)).id != pipeline.create(store, spec(fakes)).id

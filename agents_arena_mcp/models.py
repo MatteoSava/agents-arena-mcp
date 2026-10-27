@@ -56,8 +56,8 @@ class Contestant(BaseModel):
     @field_validator("name")
     @classmethod
     def _slug(cls, value: str) -> str:
-        if not NAME.fullmatch(value):
-            raise ValueError("name must be lowercase letters, digits, '.', '_' or '-' (max 40)")
+        if not NAME.fullmatch(value) or ".." in value:
+            raise ValueError("name must be lowercase letters, digits, '.', '_' or '-' (max 40), without '..'")
         return value
 
     @model_validator(mode="after")

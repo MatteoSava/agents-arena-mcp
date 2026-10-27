@@ -65,3 +65,9 @@ def test_check_names_must_be_unique():
     checks = [{"name": "tests", "cmd": "a"}, {"name": "tests", "cmd": "b"}]
     with pytest.raises(ValidationError, match="check names must be unique"):
         spec(checks=checks)
+
+
+def test_names_cannot_contain_double_dots():
+    with pytest.raises(ValidationError):
+        Contestant(name="a..b", harness="claude")
+    assert Contestant(name="a.b", harness="claude").name == "a.b"

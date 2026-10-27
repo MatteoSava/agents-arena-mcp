@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import re
+import secrets
 import shutil
 from collections.abc import Callable
 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -47,7 +48,7 @@ def create(store: Store, spec: Spec) -> Arena:
     store.init()
     root = store.repo_root
     base = git.rev_parse(root, spec.base_ref)
-    arena_id = f"{datetime.now(UTC).strftime('%Y%m%d-%H%M%S')}-{slugify(spec.task)}"
+    arena_id = f"{datetime.now(UTC).strftime('%Y%m%d-%H%M%S')}-{slugify(spec.task)}-{secrets.token_hex(2)}"
     runs = {f"{c.name}-{i}": Run(id=f"{c.name}-{i}", contestant=c.name, repeat=i)
             for c in spec.contestants for i in range(1, spec.repeats + 1)}  # fmt: skip
     arena = Arena(id=arena_id, spec=spec, repo_root=str(root), base_commit=base,
