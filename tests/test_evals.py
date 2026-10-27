@@ -1,4 +1,6 @@
+import json
 import sys
+from pathlib import Path
 
 import pytest
 from conftest import FAKE_JUDGE
@@ -13,7 +15,9 @@ def test_position_biased_judge_is_caught(repo, tmp_path, monkeypatch):
     monkeypatch.setenv("FAKE_JUDGE_MODE", "always_a")
     out = evals.eval_judge("command", "", argv=[sys.executable, str(judge), "{prompt_file}", "{output_file}"])
     m = out["metrics"]
-    assert m["order_flip_rate"] == 1.0 and m["tie_rate"] == 1.0 and m["cases"] == 8
+    results = json.loads(Path(out["results_path"]).read_text())["results"]
+    why = [(r["case"], r["orders"], r.get("error", "")) for r in results if not r["flipped"]]
+    assert m["order_flip_rate"] == 1.0 and m["tie_rate"] == 1.0 and m["cases"] == 8, why
 
 
 def test_eval_judge_runs_judge_preflight_before_any_case(repo, monkeypatch):
