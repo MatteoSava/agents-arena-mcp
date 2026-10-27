@@ -12,7 +12,7 @@ from pydantic import Field, ValidationError
 from agents_arena_mcp import git, jobs, pipeline, plan, scorecard
 from agents_arena_mcp.errors import ArenaError
 from agents_arena_mcp.models import Spec
-from agents_arena_mcp.store import Store, write_atomic
+from agents_arena_mcp.store import Store, utc_now, write_atomic
 
 ArenaId = Annotated[str | None, Field(description="Arena id; defaults to the most recently started arena.")]
 
@@ -57,11 +57,17 @@ def arena_status(arena_id: ArenaId = None) -> dict[str, Any]:
     """Arena progress: each run's state, exit status, eligibility, and background job progress."""
     s = store()
     arena = s.load(arena_id)
+    all_jobs = jobs.list_jobs(s, arena.id)
+    if arena.status == "running" and all_jobs and all(j.status == "failed" for j in all_jobs):
+        with s.mutate(arena.id) as a:
+            a.status, a.finished_at = "failed", utc_now()
+            a.error = "background job died (server exited?); worktrees may remain under " + a.worktree_root
+        arena = s.load(arena.id)
     return {
         "arena_id": arena.id, "status": arena.status, "error": arena.error,
         "runs": {r.id: {"state": r.state, "exit": r.exit_status, "eligible": r.eligible, "error": r.error}
                  for r in arena.runs.values()},
-        "jobs": [j.model_dump() for j in jobs.list_jobs(s, arena.id)],
+        "jobs": [j.model_dump() for j in all_jobs],
         "verdict": arena.scorecard.verdict if arena.scorecard else None,
     }  # fmt: skip
 

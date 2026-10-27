@@ -130,3 +130,18 @@ def test_timed_out_agent_cannot_win(repo, fakes):
     run = store.load(arena.id).runs["a-1"]
     assert run.exit_status == "timeout" and not run.eligible
     assert any(g.kind == "agent_timeout" for g in run.gates)
+
+
+def test_status_marks_arena_failed_when_its_job_died(repo, fakes):
+    from agents_arena_mcp import arena as arena_ops
+    from agents_arena_mcp.models import Job
+
+    store = Store(repo)
+    arena = pipeline.create(store, spec(fakes))
+    job = Job(id="arena-1", op="arena", pid=999999, started_at="2026-01-01T00:00:00Z")
+    jobs_dir = store.arena_dir(arena.id) / "jobs"
+    jobs_dir.mkdir(parents=True, exist_ok=True)
+    (jobs_dir / "arena-1.json").write_text(job.model_dump_json())
+    status = arena_ops.arena_status(arena.id)
+    assert status["status"] == "failed" and "died" in status["error"]
+    assert store.load(arena.id).status == "failed"
