@@ -51,6 +51,9 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--limit", type=int, default=20)
     p = sub.add_parser("init", help="Install the arena skill for your agents")
     p.add_argument("--skills", default="claude")
+    p = sub.add_parser("eval-judge", help="Measure a judge on seeded pairs with known answers")
+    p.add_argument("--judge", default="claude")
+    p.add_argument("--model", default="")
     return parser
 
 
@@ -72,6 +75,10 @@ def main(argv: list[str] | None = None) -> int:
             from agents_arena_mcp.scaffold import init
 
             result: Any = init(store().repo_root, args.skills)
+        elif args.cmd == "eval-judge":
+            from agents_arena_mcp.evals import eval_judge
+
+            result = eval_judge(args.judge, args.model)
         else:
             if args.cmd == "start":
                 if not args.wait:
