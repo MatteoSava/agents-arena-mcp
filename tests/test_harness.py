@@ -114,3 +114,15 @@ def test_judge_argv_isolates(tmp_path):
 def test_unknown_harness():
     with pytest.raises(KeyError):
         harness.get("nope")
+
+
+def test_opencode_clean_needs_env_keyed_provider(monkeypatch):
+    for var in harness.OPENCODE_PROVIDER_VARS:
+        monkeypatch.delenv(var, raising=False)
+    monkeypatch.setattr(harness.shutil, "which", lambda name: f"/bin/{name}")
+    oc = harness.get("opencode")
+    clean, real = c(harness="opencode", model="p/m", baseline="clean"), c(harness="opencode", model="p/m")
+    assert any("OPENROUTER_API_KEY" in p for p in oc.preflight(clean))
+    assert oc.preflight(real) == []
+    monkeypatch.setenv("OPENAI_API_KEY", "k")
+    assert oc.preflight(clean) == []

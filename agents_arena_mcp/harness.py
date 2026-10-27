@@ -17,6 +17,7 @@ from agents_arena_mcp import proc
 from agents_arena_mcp.models import Contestant, JudgeSpec, Metrics
 
 TOKEN_VARS = ("CLAUDE_CODE_OAUTH_TOKEN", "ANTHROPIC_API_KEY")
+OPENCODE_PROVIDER_VARS = ("OPENROUTER_API_KEY", "ANTHROPIC_API_KEY", "OPENAI_API_KEY", "GEMINI_API_KEY")
 
 
 @dataclass(frozen=True)
@@ -204,6 +205,11 @@ class OpenCode(Adapter):
         problems = super().preflight(c)
         if not c.model:
             problems.append("opencode needs an explicit model (provider/model), e.g. openrouter/openai/gpt-5-mini")
+        if c.baseline == "clean" and not any(os.environ.get(v) for v in OPENCODE_PROVIDER_VARS):
+            problems.append(
+                "clean opencode only sees providers keyed by environment variables; "
+                f"set one of {', '.join(OPENCODE_PROVIDER_VARS)}"
+            )
         return problems
 
     def judge_preflight(self, j):

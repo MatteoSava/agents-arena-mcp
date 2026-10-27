@@ -21,8 +21,6 @@ NODE_LOCKS = (("pnpm-lock.yaml", "pnpm", "pnpm install --frozen-lockfile"), ("ya
               ("bun.lock", "bun", "bun install --frozen-lockfile"), ("bun.lockb", "bun", "bun install --frozen-lockfile"),
               ("package-lock.json", "npm", "npm ci"))  # fmt: skip
 
-OPENCODE_KEYS = ("OPENROUTER_API_KEY", "ANTHROPIC_API_KEY", "OPENAI_API_KEY", "GEMINI_API_KEY")
-
 
 def _python_prefix(root: Path) -> str:
     if (root / "uv.lock").exists():
@@ -87,7 +85,7 @@ def harness_status() -> dict[str, dict[str, Any]]:
         installed = shutil.which(name) is not None
         clean = {"claude": any(os.environ.get(v) for v in harness.TOKEN_VARS),
                  "codex": (Path.home() / ".codex" / "auth.json").exists(),
-                 "opencode": any(os.environ.get(v) for v in OPENCODE_KEYS)}[name]  # fmt: skip
+                 "opencode": any(os.environ.get(v) for v in harness.OPENCODE_PROVIDER_VARS)}[name]  # fmt: skip
         out[name] = {"installed": installed, "clean_ready": installed and clean, "family": harness.get(name).family}
         if name == "opencode":
             out[name]["note"] = (
