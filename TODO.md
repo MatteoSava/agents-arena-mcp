@@ -46,7 +46,7 @@ rebuild on a small typed core, make selection trustworthy, and add bounded check
 - [DONE] Manual verification with claude: real 2-variant arena (claude runner + claude judge) ran open->run->check->judge; both variants passed vs baseline; judge returned schema-valid ties in both orders (patches differed only by a test name); same-family warning shown
 - [NOTE] eval-judge baseline 2026-10-27, claude (default model): accuracy 0.875, order-flip 0.0, tie 0.0, label-A 0.5, ~14s/call. Only miss: 06_near_identical (preferred `square(x)` over `square(value)` in both orders)
 - [TODO] Investigate 06_near_identical miss (now that reasons are saved) and decide whether the prompt should push harder toward "tie" for cosmetic-only differences
-- [TODO] Release: bump to 0.2.0, tag v0.2.0, push (needs approval)
+- [DONE] Release: 0.2.0 bumped, branch pushed, PR opened, tag v0.2.0 pushed
 - [DEFERRED] MCP background tasks (task=True): needs fastmcp[tasks]/pydocket + async tools + client support
 
 ## Phase C: Checkpoints + bounded search (opt-in)

@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.2.0
+## 0.2.0 (2026-10-27)
 
 A rebuild driven by a review of the v0.1 code and of the literature on test-time selection and LLM judges.
 See `docs/design.md` for the design and the reasoning behind it.
