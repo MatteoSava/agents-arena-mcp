@@ -71,3 +71,18 @@ def test_extract_json(text, expected):
 def test_rubric_text_presets_and_custom():
     assert "architecture" in judge.rubric_text("elegance")
     assert judge.rubric_text("Prefer async/await over callbacks") == "Prefer async/await over callbacks"
+
+
+def test_failed_final_judge_call_is_a_recorded_tie(repo, fakes, monkeypatch):
+    store, aid = run_arena(repo, fakes, monkeypatch, {"x": {"write": {"a.py": "1\n"}}, "y": {"write": {"a.py": "2\n"}}})
+
+    def boom(*args, **kwargs):
+        raise RuntimeError("boom")
+
+    monkeypatch.setattr(judge, "call", boom)
+    judge.run_finals(store, aid, progress=lambda m: None)
+    finals = store.load(aid).finals
+    assert len(finals) == 2
+    for m in finals:
+        assert m.verdict.winner == "tie" and m.verdict.confidence == 0.0
+        assert "final judge failed" in m.verdict.reasons[0]

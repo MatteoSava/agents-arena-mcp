@@ -132,6 +132,8 @@ def score_runs(store: Store, arena_id: str, progress: Callable[[str], None]) -> 
                 a.runs[run.id].score = score
                 if error:
                     a.runs[run.id].error = error
+                elif a.runs[run.id].error.startswith(("judge returned", "rubric")):
+                    a.runs[run.id].error = ""  # stale error from an earlier rubric attempt
             progress(f"{i}/{len(todo)} runs scored")
 
 
@@ -144,6 +146,19 @@ def best_run(arena: Arena, contestant: str) -> Run | None:
 
 
 def judge_order(store: Store, arena: Arena, first: Run, second: Run) -> Match:
+    try:
+        return _judge_order(store, arena, first, second)
+    except Exception as exc:  # one failed judge call must not abort the whole final round
+        reason = f"final judge failed: {type(exc).__name__}: {exc}"
+        return Match(
+            first=first.id,
+            second=second.id,
+            verdict=Verdict(winner="tie", confidence=0.0, reasons=[reason]),
+            run_dir=str(store.arena_dir(arena.id) / "judge" / f"final-{first.id}-vs-{second.id}"),
+        )
+
+
+def _judge_order(store: Store, arena: Arena, first: Run, second: Run) -> Match:
     prompt = Template(data_text("final.md.tmpl")).safe_substitute(
         task=arena.spec.task, evidence_a=evidence(first, arena.baseline), evidence_b=evidence(second, arena.baseline),
         patch_a=patch_text(first), patch_b=patch_text(second), extra="")  # fmt: skip
