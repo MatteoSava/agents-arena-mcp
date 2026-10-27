@@ -104,7 +104,7 @@ def questions(checks: list[Check], setup: str, status: dict[str, dict[str, Any]]
          "options": ["quality", "elegance", "speed", "tokens", "cost", "custom rubric text"], "default": "quality"},
         {"id": "baseline", "question": "Start each contestant from a clean harness or your real setup?",
          "options": ["clean (only what the overlays add)", "real (your skills, plugins, MCP servers)"], "default": "real",
-         "why": "clean claude needs CLAUDE_CODE_OAUTH_TOKEN (`claude setup-token`); real never modifies your home."},
+         "why": "clean claude needs CLAUDE_CODE_OAUTH_TOKEN (`claude setup-token`); real uses your setup as-is (the harness still records its usual history)."},
         {"id": "repeats", "question": "How many runs per contestant?", "options": [1, 3, 5], "default": 3,
          "why": "Agents are noisy; medians over repeats are more trustworthy than one run."},
         {"id": "checks", "question": "Which checks gate the runs?", "options": [c.model_dump() for c in checks],

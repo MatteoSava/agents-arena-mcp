@@ -19,7 +19,7 @@ Each contestant runs `repeats` times, each run in its own git worktree. The aren
 - **Overlays:** `{"from": "<any path>", "to": "repo:<path>"}` puts a file or directory into the run's checkout. `home:<path>` targets the clean harness home and requires `baseline="clean"`. Overlays are never counted as the contestant's code.
 - **Setup:** `setup` is a shell command (e.g. `npm ci`) run once on the base commit and in every run's checkout before the agent starts. Its output is never counted as the contestant's code.
 - **Baseline:**
-  - `real` uses the user's actual setup, which is never modified.
+  - `real` uses the user's actual setup. The arena never writes overlays into it, but the harness still records its usual session history there.
   - `clean` starts from an empty harness home with auth only. Clean claude needs `CLAUDE_CODE_OAUTH_TOKEN` (`claude setup-token`) or `ANTHROPIC_API_KEY`. Clean opencode only sees providers keyed by environment variables, and every opencode contestant needs an explicit `model`.
 - **Objective:**
   - `quality` and `elegance` are judged: a blind rubric score per run, then a final in both orders.
