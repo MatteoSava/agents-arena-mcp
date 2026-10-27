@@ -228,6 +228,7 @@ The CLI always waits for a run to finish, because a background run would die whe
 uv sync
 uv run pytest -q
 uv run ruff check . && uv run ruff format --check . && uv run basedpyright
+uv run python docs/assets/make_assets.py   # regenerate the README images
 ```
 
 Architecture, data layout and selection logic are described in [docs/design.md](docs/design.md). What's next is in [TODO.md](TODO.md). MIT licensed.
