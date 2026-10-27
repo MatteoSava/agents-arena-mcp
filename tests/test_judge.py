@@ -1,4 +1,6 @@
 import json
+import sys
+from pathlib import Path
 
 import pytest
 from conftest import command_contestant, command_judge
@@ -86,3 +88,20 @@ def test_failed_final_judge_call_is_a_recorded_tie(repo, fakes, monkeypatch):
     for m in finals:
         assert m.verdict.winner == "tie" and m.verdict.confidence == 0.0
         assert "final judge failed" in m.verdict.reasons[0]
+
+
+def test_judge_runs_outside_the_repo_and_records_files(repo, fakes, tmp_path):
+    script = (
+        "import json, os, sys\n"
+        "answer = {'winner': 'A', 'confidence': 1, 'reasons': [os.getcwd()], 'risks': []}\n"
+        "open(sys.argv[2], 'w').write(json.dumps(answer))\n"
+    )
+    data = {"task": "t", "judge": {"harness": "command", "argv": [sys.executable, "-c", script, "{prompt_file}", "{output_file}"]},
+            "contestants": [command_contestant(fakes, "a"), command_contestant(fakes, "b")]}  # fmt: skip
+    run_dir = tmp_path / "rec"
+    parsed, error = judge.call(Spec.model_validate(data), "prompt", "judge.schema.json", "winner", run_dir, "o")
+    assert parsed and not error
+    cwd = Path(parsed["reasons"][0]).resolve()
+    assert not cwd.is_relative_to(repo.resolve()) and not cwd.is_relative_to(run_dir.resolve())
+    for name in ("prompt.md", "schema.json", "output.json", "stdout.log", "stderr.log"):
+        assert (run_dir / name).exists(), name

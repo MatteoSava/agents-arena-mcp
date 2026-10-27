@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import json
+import shutil
+import tempfile
 from collections.abc import Callable
 from concurrent.futures import ThreadPoolExecutor
 from itertools import combinations
@@ -86,16 +88,21 @@ def extract_json(text: str, key: str) -> dict | None:
 
 
 def call(spec: Spec, prompt: str, schema_name: str, key: str, run_dir: Path, owner: str) -> tuple[dict | None, str]:
-    """Run the judge CLI in an empty directory; return the parsed JSON object or an error message."""
+    """Run the judge CLI in an empty temp dir outside the repo; return the parsed JSON object or an error message."""
     run_dir.mkdir(parents=True, exist_ok=True)
     schema = data_text(schema_name)
-    files = harness.JudgeFiles(prompt_file=str(run_dir / "prompt.md"), output_file=str(run_dir / "output.json"),
-                               schema_file=str(run_dir / "schema.json"), schema_json=json.dumps(json.loads(schema)))  # fmt: skip
-    Path(files.prompt_file).write_text(prompt, encoding="utf-8")
-    Path(files.schema_file).write_text(schema, encoding="utf-8")
-    argv = harness.get(spec.judge.harness).judge_argv(spec.judge, prompt, files)
-    out = proc.run(argv, run_dir, spec.judge.timeout_sec, owner=owner, log_dir=run_dir)
-    written = Path(files.output_file).read_text(encoding="utf-8") if Path(files.output_file).exists() else ""
+    with tempfile.TemporaryDirectory(prefix="arena-judge-") as tmp:
+        work = Path(tmp)
+        files = harness.JudgeFiles(prompt_file=str(work / "prompt.md"), output_file=str(work / "output.json"),
+                                   schema_file=str(work / "schema.json"), schema_json=json.dumps(json.loads(schema)))  # fmt: skip
+        Path(files.prompt_file).write_text(prompt, encoding="utf-8")
+        Path(files.schema_file).write_text(schema, encoding="utf-8")
+        argv = harness.get(spec.judge.harness).judge_argv(spec.judge, prompt, files)
+        out = proc.run(argv, work, spec.judge.timeout_sec, owner=owner, log_dir=work)
+        written = Path(files.output_file).read_text(encoding="utf-8") if Path(files.output_file).exists() else ""
+        for name in ("prompt.md", "schema.json", "output.json", "stdout.log", "stderr.log"):
+            if (work / name).exists():
+                shutil.copyfile(work / name, run_dir / name)
     parsed = extract_json(written, key) or extract_json(out.stdout, key)
     return (parsed, "") if parsed else (None, f"judge returned no usable JSON ({out.status}); see {run_dir}")
 
