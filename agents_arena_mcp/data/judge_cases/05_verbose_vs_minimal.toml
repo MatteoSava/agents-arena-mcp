@@ -1,0 +1,46 @@
+task = "Make `clamp(x, lo, hi)` handle the case where x is above hi."
+expected = ["b", "tie"]
+
+[base]
+"num.py" = """
+def clamp(x, lo, hi):
+    if x < lo:
+        return lo
+    return x
+"""
+
+[a]
+"num.py" = """
+from typing import Union
+
+Number = Union[int, float]
+
+
+class _Bounds:
+    def __init__(self, lo: Number, hi: Number) -> None:
+        self.lo = lo
+        self.hi = hi
+
+    def apply(self, x: Number) -> Number:
+        result = x
+        if result < self.lo:
+            result = self.lo
+        if result > self.hi:
+            result = self.hi
+        return result
+
+
+def clamp(x: Number, lo: Number, hi: Number) -> Number:
+    bounds = _Bounds(lo, hi)
+    return bounds.apply(x)
+"""
+
+[b]
+"num.py" = """
+def clamp(x, lo, hi):
+    if x < lo:
+        return lo
+    if x > hi:
+        return hi
+    return x
+"""

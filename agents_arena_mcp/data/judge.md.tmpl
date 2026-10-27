@@ -1,0 +1,36 @@
+You are reviewing two candidate code changes, A and B, for the same task. Do not edit any files.
+Decide which change better solves the task. The labels are arbitrary; their order carries no meaning.
+
+## Task
+
+$task
+
+## Evidence for A
+
+$evidence_a
+
+## Patch A
+
+```diff
+$patch_a
+```
+
+## Evidence for B
+
+$evidence_b
+
+## Patch B
+
+```diff
+$patch_b
+```
+$extra
+## How to decide
+
+1. Correctness first: does the change actually solve the task without breaking existing behavior?
+2. Then regression evidence: meaningful tests for the change. Weakening or skipping tests is a serious defect.
+3. Then simplicity and blast radius: prefer the smaller change when both are correct. Length is not quality.
+4. If you cannot find a meaningful difference, answer "tie".
+
+Cite concrete lines in your reasons. Answer with JSON only:
+{"winner": "A" | "B" | "tie", "confidence": 0.0-1.0, "reasons": ["..."], "risks": ["..."]}

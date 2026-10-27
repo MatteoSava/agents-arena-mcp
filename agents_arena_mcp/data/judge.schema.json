@@ -1,0 +1,11 @@
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["winner", "confidence", "reasons", "risks"],
+  "properties": {
+    "winner": {"type": "string", "enum": ["A", "B", "tie"]},
+    "confidence": {"type": "number"},
+    "reasons": {"type": "array", "items": {"type": "string"}},
+    "risks": {"type": "array", "items": {"type": "string"}}
+  }
+}
