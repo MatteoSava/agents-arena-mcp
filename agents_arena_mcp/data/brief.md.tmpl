@@ -1,0 +1,19 @@
+# Agents Arena variant brief
+
+Variant: $variant
+Workspace: $workspace
+
+## Task
+
+$task
+
+## Strategy
+
+$strategy
+$extra
+## Rules
+
+- Work only inside the workspace above. Leave changes uncommitted; the arena snapshots the tree.
+- Do not delete or weaken existing tests, and do not edit CI or agent configuration.
+- Prefer regression evidence (tests) over claims.
+- Do not touch secrets or production credentials.

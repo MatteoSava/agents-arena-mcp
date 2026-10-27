@@ -1,0 +1,37 @@
+task = "`fetch_user` should return None instead of raising KeyError when the user is missing."
+expected = "a"
+
+[base]
+"users.py" = """
+USERS = {1: "ada"}
+
+
+def fetch_user(user_id):
+    return USERS[user_id]
+"""
+"service.py" = """
+from users import fetch_user
+
+
+def greeting(user_id):
+    name = fetch_user(user_id)
+    return f"hi {name}" if name else "hi stranger"
+"""
+
+[a]
+"users.py" = """
+USERS = {1: "ada"}
+
+
+def fetch_user(user_id):
+    return USERS.get(user_id)
+"""
+
+[b]
+"users.py" = """
+USERS = {1: "ada"}
+
+
+def fetch_user(user_id, *, default):
+    return USERS.get(user_id, default)
+"""

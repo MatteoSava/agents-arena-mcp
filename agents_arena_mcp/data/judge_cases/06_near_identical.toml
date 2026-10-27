@@ -1,0 +1,28 @@
+task = "Add a `square(x)` function to mathx.py."
+expected = "tie"
+
+[base]
+"mathx.py" = """
+def double(x):
+    return x * 2
+"""
+
+[a]
+"mathx.py" = """
+def double(x):
+    return x * 2
+
+
+def square(x):
+    return x * x
+"""
+
+[b]
+"mathx.py" = """
+def double(x):
+    return x * 2
+
+
+def square(value):
+    return value * value
+"""

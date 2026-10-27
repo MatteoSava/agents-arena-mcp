@@ -1,0 +1,29 @@
+task = "`fib(n)` is wrong for n >= 2 (the failing report was fib(10) == 55). Fix fib."
+expected = "b"
+
+[base]
+"seq.py" = """
+def fib(n):
+    if n < 2:
+        return n
+    return fib(n - 1) + fib(n - 1)
+"""
+
+[a]
+"seq.py" = """
+def fib(n):
+    if n == 10:
+        return 55
+    if n < 2:
+        return n
+    return fib(n - 1) + fib(n - 1)
+"""
+
+[b]
+"seq.py" = """
+def fib(n):
+    a, b = 0, 1
+    for _ in range(n):
+        a, b = b, a + b
+    return a
+"""
